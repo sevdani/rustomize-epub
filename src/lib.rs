@@ -33,7 +33,8 @@ pub mod toc;
 pub mod pipeline;
 
 pub use error::{ProcessingError, ProcessingErrorType, ProcessingErrorCollection, Result};
-pub use types::{ProcessingOptions, ProcessingReport, DeviceProfile, ImageOptions};
+pub use types::{ProcessingOptions, ProcessingReport, DeviceProfile, ImageOptions, HtmlOptions};
+pub use types::{FilenameFormat, MetadataEdits};
 pub use pipeline::{process_epub_path, process_epub_memory};
 
 // Re-export submodules for direct access to types

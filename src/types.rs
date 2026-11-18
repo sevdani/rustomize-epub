@@ -8,10 +8,21 @@ pub struct DeviceProfile {
     pub width: u32,        // Portrait width
     pub height: u32,       // Portrait height
     pub gray_levels: Vec<u8>,  // e-ink grayscale levels (e.g., [0, 85, 170, 255])
-    pub max_image_dimension: u32,  // Hard limit (1024 per EPUB spec)
+    pub ppi: u32,  // pixels per inch
 }
 
 impl DeviceProfile {
+    /// Custom device profile
+    pub fn custom(width: u32, height: u32, ppi: u32) -> Self {
+        Self {
+            name: format!("Custom {}x{}", width, height),
+            width,
+            height,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi,
+        }
+    }
+
     /// Xteink X3 profile (528x792)
     pub fn x3() -> Self {
         Self {
@@ -19,29 +30,84 @@ impl DeviceProfile {
             width: 528,
             height: 792,
             gray_levels: vec![0, 85, 170, 255],
-            max_image_dimension: 1024,
+            ppi: 259,
         }
     }
     
     /// Xteink X4 profile (480x800)
     pub fn x4() -> Self {
         Self {
-            name: "Xteink X4".to_string(),
+            name: "Xteink X4 (Classic/Pro)".to_string(),
             width: 480,
             height: 800,
             gray_levels: vec![0, 85, 170, 255],
-            max_image_dimension: 1024,
+            ppi: 219,
         }
     }
     
-    /// Custom device profile
-    pub fn custom(width: u32, height: u32) -> Self {
+    /// EEGOREAD A4 profile (552x768)
+    pub fn eegoread_a4() -> Self {
         Self {
-            name: format!("Custom {}x{}", width, height),
-            width,
-            height,
+            name: "EEGOREAD A4".to_string(),
+            width: 552,
+            height: 768,
             gray_levels: vec![0, 85, 170, 255],
-            max_image_dimension: 1024,
+            ppi: 238,
+        }
+    }
+    
+    /// BOOX Picco profile (480x800)
+    pub fn boox_picco() -> Self {
+        Self {
+            name: "BOOX Picco".to_string(),
+            width: 480,
+            height: 800,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi: 235,
+        }
+    }
+    
+    /// PaperMono profile (480x800)
+    pub fn paper_mono() -> Self {
+        Self {
+            name: "PaperMono (Lite)".to_string(),
+            width: 480,
+            height: 800,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi: 235,
+        }
+    }
+    
+    /// Seeed Sticky profile (480x800)
+    pub fn seeed_sticky() -> Self {
+        Self {
+            name: "Seeed Sticky".to_string(),
+            width: 480,
+            height: 800,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi: 235,
+        }
+    }
+    
+    /// M5Paper v1.1 profile (1024x1024)
+    pub fn m5paper_v1_1() -> Self {
+        Self {
+            name: "M5Paper v1.1".to_string(),
+            width: 540,
+            height: 960,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi: 234,
+        }
+    }
+    
+    /// T5 E-Paper S3 Pro Lite profile (1024x1024)
+    pub fn t5_epaper_s3_pro_lite() -> Self {
+        Self {
+            name: "T5 E-Paper S3 Pro Lite".to_string(),
+            width: 540,
+            height: 960,
+            gray_levels: vec![0, 85, 170, 255],
+            ppi: 234,
         }
     }
 }
@@ -114,6 +180,20 @@ impl Default for TextCleanOptions {
     }
 }
 
+/// HTML processing options
+#[derive(Debug, Clone)]
+pub struct HtmlOptions {
+    pub strip_attributes: bool,
+}
+
+impl Default for HtmlOptions {
+    fn default() -> Self {
+        Self {
+            strip_attributes: true,
+        }
+    }
+}
+
 /// CSS processing options
 #[derive(Debug, Clone)]
 pub struct CssOptions {
@@ -154,13 +234,14 @@ pub struct MetadataEdits {
 pub struct ProcessingOptions {
     pub device: DeviceProfile,
     pub image_options: ImageOptions,
+    pub html_options: HtmlOptions,
     pub css_options: CssOptions,
     pub text_options: TextCleanOptions,
     pub remove_fonts: bool,
     pub remove_unused_css: bool,
     pub light_novel_mode: bool,
     pub light_novel_rotate_left: bool,
-    pub generate_missing_cover: bool,   // Always true per user requirement
+    pub generate_missing_cover: bool,
     pub clean_metadata: bool,
     pub text_cleanup: bool,
     pub normalize_quotes: bool,
@@ -174,6 +255,7 @@ impl ProcessingOptions {
     /// Quick preset: Images + text cleanup only
     pub fn quick() -> Self {
         Self {
+            html_options: HtmlOptions::default(),
             remove_unused_css: false,
             remove_fonts: false,
             clean_metadata: false,
@@ -198,6 +280,7 @@ impl Default for ProcessingOptions {
         Self {
             device: DeviceProfile::x4(),
             image_options: ImageOptions::default(),
+            html_options: HtmlOptions::default(),
             css_options: CssOptions::default(),
             text_options: TextCleanOptions::default(),
             remove_fonts: true,
@@ -246,6 +329,8 @@ pub struct ProcessingReport {
     pub text_cleanup_summary: String,
     // OS artifacts
     pub os_artifacts_removed: usize,
+    // Metadata edits
+    pub metadata_edits_applied: bool,
 }
 
 impl ProcessingReport {
@@ -346,6 +431,7 @@ impl Default for ProcessingReport {
             text_fixes_total: 0,
             text_cleanup_summary: String::new(),
             os_artifacts_removed: 0,
+            metadata_edits_applied: false,
         }
     }
 }
@@ -373,27 +459,87 @@ mod tests {
         assert_eq!(profile.width, 528);
         assert_eq!(profile.height, 792);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
-        assert_eq!(profile.max_image_dimension, 1024);
+        assert_eq!(profile.ppi, 259);
     }
 
     #[test]
     fn test_device_profile_x4() {
         let profile = DeviceProfile::x4();
-        assert_eq!(profile.name, "Xteink X4");
+        assert_eq!(profile.name, "Xteink X4 (Classic/Pro)");
         assert_eq!(profile.width, 480);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
-        assert_eq!(profile.max_image_dimension, 1024);
+        assert_eq!(profile.ppi, 219);
     }
 
     #[test]
     fn test_device_profile_custom() {
-        let profile = DeviceProfile::custom(600, 800);
+        let profile = DeviceProfile::custom(600, 800, 234);
         assert_eq!(profile.name, "Custom 600x800");
         assert_eq!(profile.width, 600);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
-        assert_eq!(profile.max_image_dimension, 1024);
+        assert_eq!(profile.ppi, 234);
+    }
+
+    #[test]
+    fn test_device_profile_eegoread_a4() {
+        let profile = DeviceProfile::eegoread_a4();
+        assert_eq!(profile.name, "EEGOREAD A4");
+        assert_eq!(profile.width, 552);
+        assert_eq!(profile.height, 768);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 238);
+    }
+
+    #[test]
+    fn test_device_profile_boox_picco() {
+        let profile = DeviceProfile::boox_picco();
+        assert_eq!(profile.name, "BOOX Picco");
+        assert_eq!(profile.width, 480);
+        assert_eq!(profile.height, 800);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 235);
+    }
+
+    #[test]
+    fn test_device_profile_paper_mono() {
+        let profile = DeviceProfile::paper_mono();
+        assert_eq!(profile.name, "PaperMono (Lite)");
+        assert_eq!(profile.width, 480);
+        assert_eq!(profile.height, 800);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 235);
+    }
+
+    #[test]
+    fn test_device_profile_seeed_sticky() {
+        let profile = DeviceProfile::seeed_sticky();
+        assert_eq!(profile.name, "Seeed Sticky");
+        assert_eq!(profile.width, 480);
+        assert_eq!(profile.height, 800);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 235);
+    }
+
+    #[test]
+    fn test_device_profile_m5paper_v1_1() {
+        let profile = DeviceProfile::m5paper_v1_1();
+        assert_eq!(profile.name, "M5Paper v1.1");
+        assert_eq!(profile.width, 540);
+        assert_eq!(profile.height, 960);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 234);
+    }
+
+    #[test]
+    fn test_device_profile_t5_epaper_s3_pro_lite() {
+        let profile = DeviceProfile::t5_epaper_s3_pro_lite();
+        assert_eq!(profile.name, "T5 E-Paper S3 Pro Lite");
+        assert_eq!(profile.width, 540);
+        assert_eq!(profile.height, 960);
+        assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
+        assert_eq!(profile.ppi, 234);
     }
 
     #[test]
@@ -436,9 +582,16 @@ mod tests {
     }
 
     #[test]
+    fn test_html_options_default() {
+        let options = HtmlOptions::default();
+        assert!(options.strip_attributes);
+    }
+
+    #[test]
     fn test_processing_options_default() {
         let options = ProcessingOptions::default();
-        assert_eq!(options.device.name, "Xteink X4");
+        assert_eq!(options.device.name, "Xteink X4 (Classic/Pro)");
+        assert!(options.html_options.strip_attributes);
         assert!(options.remove_fonts);
         assert!(options.remove_unused_css);
         assert!(options.generate_missing_cover);
@@ -460,7 +613,7 @@ mod tests {
     #[test]
     fn test_processing_options_full() {
         let options = ProcessingOptions::full();
-        assert_eq!(options.device.name, "Xteink X4");
+        assert_eq!(options.device.name, "Xteink X4 (Classic/Pro)");
         assert!(options.remove_fonts);
         assert!(options.remove_unused_css);
         assert!(options.generate_missing_cover);

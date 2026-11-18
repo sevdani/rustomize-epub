@@ -18,17 +18,23 @@ doc = false
 
 [dependencies]
 # Core dependencies
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif"] }
-zip = { version = "3.0", default-features = false, features = ["deflate"] }
-unicode-normalization = "0.1"
-thiserror = "2.0"
-clap = { version = "4.5", features = ["derive"] }
-rayon = { version = "1.10", optional = true }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif"] }
+zip = { version = "9.7.0", default-features = false, features = ["deflate"] }
+unicode-normalization = "0.1.26"
+thiserror = "2.0.21"
+clap = { version = "4.6.8", features = ["derive"] }
+rayon = { version = "1.12.0", optional = true }
+
+# Font rendering for cover generation (pure Rust, no system deps)
+rusttype = "0.9.3"
+
+# HTML parsing with regex (simpler approach for attribute stripping)
+regex = "1.13.2"
 
 [dev-dependencies]
-criterion = "0.5"
-tempfile = "3.12"
-cargo-llvm-cov = "0.5"
+criterion = "0.8.2"
+tempfile = "3.27.0"
+cargo-llvm-cov = "0.9.1"
 
 [features]
 default = []

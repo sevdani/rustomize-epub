@@ -1,5 +1,4 @@
 //! Metadata extractor
-use std::collections::HashMap;
 
 /// Extracted metadata from EPUB
 #[derive(Debug, Default)]
@@ -38,18 +37,103 @@ fn extract_dc_tag(content: &str, tag: &str) -> Option<String> {
     None
 }
 
-/// Extract a meta tag value
-fn extract_meta_tag(content: &str, name: &str) -> Option<String> {
-    let name_pattern = format!("name=\"{}\"", name);
-    if let Some(start) = content.find(&name_pattern) {
-        // Find content attribute
-        let content_pattern = "content=\"";
-        if let Some(content_start) = content[start..].find(content_pattern) {
-            let content_start = content_start + content_pattern.len();
-            if let Some(content_end) = content[start + content_start..].find('"') {
-                return Some(content[start + content_start..start + content_start + content_end].to_string());
-            }
-        }
+/// Extract title from OPF content
+pub fn extract_title_from_opf(content: &str) -> Option<String> {
+    extract_dc_tag(content, "title")
+}
+
+/// Extract creator (author) from OPF content
+pub fn extract_creator_from_opf(content: &str) -> Option<String> {
+    extract_dc_tag(content, "creator")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_dc_tag_found() {
+        let content = r#"<dc:title>Test Title</dc:title>"#;
+        let result = extract_dc_tag(content, "title");
+        assert_eq!(result, Some("Test Title".to_string()));
     }
-    None
+
+    #[test]
+    fn test_extract_dc_tag_not_found() {
+        let content = r#"<dc:creator>Test</dc:creator>"#;
+        let result = extract_dc_tag(content, "title");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_dc_tag_with_whitespace() {
+        let content = r#"<dc:title>  Test Title  </dc:title>"#;
+        let result = extract_dc_tag(content, "title");
+        assert_eq!(result, Some("Test Title".to_string()));
+    }
+
+    #[test]
+    fn test_extract_dc_tag_empty() {
+        let content = r#"<dc:title></dc:title>"#;
+        let result = extract_dc_tag(content, "title");
+        assert_eq!(result, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_extract_title_from_opf_found() {
+        let content = r#"<metadata>
+            <dc:title>My Book Title</dc:title>
+        </metadata>"#;
+        let result = extract_title_from_opf(content);
+        assert_eq!(result, Some("My Book Title".to_string()));
+    }
+
+    #[test]
+    fn test_extract_title_from_opf_not_found() {
+        let content = r#"<metadata>
+            <dc:creator>Author Name</dc:creator>
+        </metadata>"#;
+        let result = extract_title_from_opf(content);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_title_from_opf_with_attributes() {
+        let content = r#"<metadata>
+            <dc:title xml:lang="en">My Book</dc:title>
+        </metadata>"#;
+        // Note: This extraction method doesn't handle attributes in tags
+        let result = extract_title_from_opf(content);
+        // The tag needs to be exactly <dc:title> without attributes
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_creator_from_opf_found() {
+        let content = r#"<metadata>
+            <dc:creator>John Doe</dc:creator>
+        </metadata>"#;
+        let result = extract_creator_from_opf(content);
+        assert_eq!(result, Some("John Doe".to_string()));
+    }
+
+    #[test]
+    fn test_extract_creator_from_opf_not_found() {
+        let content = r#"<metadata>
+            <dc:title>Book Title</dc:title>
+        </metadata>"#;
+        let result = extract_creator_from_opf(content);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_creator_from_opf_multiple_creators() {
+        let content = r#"<metadata>
+            <dc:creator>Author One</dc:creator>
+            <dc:creator>Author Two</dc:creator>
+        </metadata>"#;
+        // Should return the first one
+        let result = extract_creator_from_opf(content);
+        assert_eq!(result, Some("Author One".to_string()));
+    }
 }

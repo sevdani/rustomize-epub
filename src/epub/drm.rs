@@ -31,7 +31,11 @@ pub fn has_drm_from_bytes(bytes: &[u8]) -> Result<bool, crate::ProcessingError> 
             )
         })?;
         
-        let name = file.mangled_name().display().to_string();
+        let name = file.mangled_name().map_err(|e| crate::error::ProcessingError::new(
+            "DRM check",
+            crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
+            format!("Failed to get file name for DRM check: {}", e)
+        ))?.display().to_string();
         
         // Check for known DRM-related files
         if name.contains("rights") || name.contains("license") || name.contains("DRM") {

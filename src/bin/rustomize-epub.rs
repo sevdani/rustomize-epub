@@ -1,6 +1,6 @@
 /// rustomize-epub CLI binary
 use clap::Parser;
-use rustomize_epub::{process_epub_path, ProcessingOptions, DeviceProfile};
+use rustomize_epub::{process_epub_path, ProcessingOptions, DeviceProfile, MetadataEdits};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -16,7 +16,7 @@ struct Cli {
     #[arg(short, long)]
     output: PathBuf,
 
-    /// Device profile (x3, x4, or custom)
+    /// Device profile (x3, x4, a4, picco, mono, sticky, m5, s3 or custom)
     #[arg(short, long, default_value = "x4")]
     device: String,
 
@@ -27,6 +27,10 @@ struct Cli {
     /// Height for custom device profile
     #[arg(long)]
     height: Option<u32>,
+
+    /// Pixel per Inch
+    #[arg(long)]
+    ppi: Option<u32>,
 
     /// Preset to use (quick, full, custom)
     #[arg(short, long, default_value = "full")]
@@ -63,6 +67,26 @@ struct Cli {
     /// Skip TOC fix
     #[arg(long)]
     no_toc: bool,
+
+    /// Book title (overrides metadata)
+    #[arg(long)]
+    title: Option<String>,
+
+    /// Book author (overrides metadata)
+    #[arg(long)]
+    author: Option<String>,
+
+    /// Book series name
+    #[arg(long)]
+    series: Option<String>,
+
+    /// Book series index (number)
+    #[arg(long)]
+    series_index: Option<String>,
+
+    /// Book language code (e.g., en, fr, de)
+    #[arg(long)]
+    language: Option<String>,
 
     /// Generate cover if missing
     #[arg(long, default_value = "true")]
@@ -115,15 +139,34 @@ fn main() {
         std::process::exit(1);
     };
 
+    // Apply metadata edits from CLI
+    if cli.title.is_some() || cli.author.is_some() || 
+       cli.series.is_some() || cli.series_index.is_some() || 
+       cli.language.is_some() {
+        options.metadata_edits = Some(MetadataEdits {
+            title: cli.title,
+            author: cli.author,
+            series: cli.series,
+            series_index: cli.series_index,
+            language: cli.language,
+        });
+    }
+
     // Override device profile
     options.device = match cli.device.as_str() {
         "x3" => DeviceProfile::x3(),
         "x4" => DeviceProfile::x4(),
+        "a4" => DeviceProfile::eegoread_a4(),
+        "picco" => DeviceProfile::boox_picco(),
+        "mono" => DeviceProfile::paper_mono(),
+        "sticky" => DeviceProfile::seeed_sticky(),
+        "m5" => DeviceProfile::m5paper_v1_1(),
+        "s3" => DeviceProfile::t5_epaper_s3_pro_lite(),
         _ => {
-            if let (Some(width), Some(height)) = (cli.width, cli.height) {
-                DeviceProfile::custom(width, height)
+            if let (Some(width), Some(height), Some(ppi)) = (cli.width, cli.height, cli.ppi) {
+                DeviceProfile::custom(width, height, ppi)
             } else {
-                eprintln!("Error: Custom device requires --width and --height");
+                eprintln!("Error: Custom device requires --width, --height and --ppi");
                 std::process::exit(1);
             }
         }
@@ -279,10 +322,11 @@ mod tests {
 
     #[test]
     fn test_cli_parser_with_custom_device() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "-d", "custom", "--width", "600", "--height", "800"]);
+        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "-d", "custom", "--width", "600", "--height", "800", "--ppi", "234"]);
         assert_eq!(cli.device, "custom");
         assert_eq!(cli.width, Some(600));
         assert_eq!(cli.height, Some(800));
+        assert_eq!(cli.ppi, Some(234));
     }
 
     #[test]
@@ -345,5 +389,37 @@ mod tests {
         assert!(!cli.verbose);
         assert!(!cli.quiet);
         assert_eq!(cli.max_threads, None);
+    }
+
+    #[test]
+    fn test_cli_parser_with_title_author() {
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i", "input.epub",
+            "-o", "output.epub",
+            "--title", "New Title",
+            "--author", "New Author",
+        ]);
+        assert_eq!(cli.title, Some("New Title".to_string()));
+        assert_eq!(cli.author, Some("New Author".to_string()));
+    }
+
+    #[test]
+    fn test_cli_parser_with_metadata_edits() {
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i", "input.epub",
+            "-o", "output.epub",
+            "--title", "New Title",
+            "--author", "New Author",
+            "--series", "My Series",
+            "--series-index", "3",
+            "--language", "en",
+        ]);
+        assert_eq!(cli.title, Some("New Title".to_string()));
+        assert_eq!(cli.author, Some("New Author".to_string()));
+        assert_eq!(cli.series, Some("My Series".to_string()));
+        assert_eq!(cli.series_index, Some("3".to_string()));
+        assert_eq!(cli.language, Some("en".to_string()));
     }
 }

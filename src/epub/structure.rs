@@ -1,6 +1,7 @@
 //! EPUB structure in-memory operations
 
 use std::collections::HashMap;
+use std::path::Path;
 
 // Re-export types for test compatibility
 pub use crate::types::ContentFiles;
@@ -409,4 +410,100 @@ mod tests {
         let (result, count) = fix_svg_covers_content(opf_content);
         assert!(count > 0 || result.contains("meta"));
     }
+    
+    #[test]
+    fn test_add_cover_to_opf_content_jpeg() {
+        let opf_content = r#"<manifest>
+            <item href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+        </manifest>"#;
+        
+        let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.jpg");
+        assert!(result.contains("cover.jpg"));
+        assert!(result.contains("media-type=\"image/jpeg\""));
+        assert!(result.contains("<meta name=\"cover\""));
+    }
+    
+    #[test]
+    fn test_add_cover_to_opf_content_png() {
+        let opf_content = r#"<manifest>
+            <item href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+        </manifest>"#;
+        
+        let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.png");
+        assert!(result.contains("cover.png"));
+        assert!(result.contains("media-type=\"image/png\""));
+    }
+    
+    #[test]
+    fn test_add_cover_to_opf_content_meta_tag_added() {
+        let opf_content = r#"<manifest>
+            <item href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+        </manifest>"#;
+        
+        let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.jpg");
+        assert!(result.contains("name=\"cover\""));
+    }
+    
+    #[test]
+    fn test_add_cover_to_opf_content_with_existing_meta() {
+        let opf_content = r#"<manifest>
+            <item href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+            <meta name="cover" content="old-cover.jpg"/>
+        </manifest>"#;
+        
+        let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.jpg");
+        // Should preserve existing meta but still add manifest entry
+        assert!(result.contains("name=\"cover\""));
+    }
+    
+    #[test]
+    fn test_add_cover_to_opf_content_empty_manifest() {
+        let opf_content = "<manifest></manifest>";
+        
+        let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.jpg");
+        assert!(result.contains("cover.jpg"));
+    }
+}
+
+/// Add cover reference to OPF manifest
+pub fn add_cover_to_opf_content(opf_content: &str, cover_path: &str) -> String {
+    let mut new_content = opf_content.to_string();
+    
+    // Get the directory path from cover_path for the media-type
+    let cover_filename = Path::new(cover_path)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("cover.jpg");
+    
+    let cover_extension = Path::new(cover_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
+    
+    let media_type = match cover_extension.to_lowercase().as_str() {
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "image/jpeg",
+    };
+    
+    // Add cover image to manifest
+    let manifest_insert = format!("\n    <item id=\"cover\" href=\"{}\" media-type=\"{}\"/>", cover_path, media_type);
+    
+    // Find the manifest section and add the cover item before </manifest>
+    if let Some(manifest_end) = new_content.find("</manifest>") {
+        new_content.insert_str(manifest_end, &manifest_insert);
+    }
+    
+    // Add cover meta tag if not exists
+    if !new_content.contains("name=\"cover\"") {
+        let meta_tag = format!("\n    <meta name=\"cover\" content=\"{}\"/>", cover_filename);
+        
+        // Find manifest end again (positions may have changed)
+        if let Some(manifest_end) = new_content.find("</manifest>") {
+            new_content.insert_str(manifest_end, &meta_tag);
+        }
+    }
+    
+    new_content
 }

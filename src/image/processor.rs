@@ -2,9 +2,16 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use image::{GenericImageView, DynamicImage};
+use image::{GenericImageView, DynamicImage, ImageBuffer, Luma};
 use crate::types::ImageOptions;
 use crate::error::{ProcessingError, ProcessingErrorType, Result};
+
+// Font imports
+use rusttype::{Font, Scale, point};
+
+// FONTS
+const FONT_NORMAL: &[u8] = include_bytes!("../../assets/fonts/dejavu/DejaVuSerif.ttf");
+const FONT_BOLD: &[u8] = include_bytes!("../../assets/fonts/dejavu/DejaVuSerif-Bold.ttf");
 
 /// Supported image extensions
 const SUPPORTED_EXTENSIONS: &[&str] = &["png", "gif", "webp", "bmp", "jpeg", "jpg", "tif", "tiff"];
@@ -226,15 +233,121 @@ pub struct ImageResult {
 
 /// Generate a cover image from title and author
 pub fn generate_cover_image(
-    _title: &str,
-    _author: &str,
-    _width: u32,
-    _height: u32,
-    _gray_levels: Option<Vec<u8>>
+    title: &str,
+    author: &str,
+    width: u32,
+    height: u32,
+    gray_levels: Option<Vec<u8>>
 ) -> Result<Vec<u8>> {
-    // Placeholder for cover generation
-    // TODO: Implement full cover generation with text rendering
-    Ok(vec![0u8; 100])  // Placeholder bytes
+    // 1. Load fonts from embedded bytes
+    let title_font = load_title_font()?;
+    let author_font = load_author_font()?;
+    
+    // 2. Create blank image (dark background for e-ink)
+    let mut img = ImageBuffer::new(width, height);
+    for pixel in img.pixels_mut() {
+        *pixel = Luma([20u8]); // Dark gray background
+    }
+    
+    // 3. Render title text (centered at top)
+    let title_y = height / 4; // Top quarter
+    render_text_rusttype(&mut img, &title_font, title, 16, title_y, 255, 48)?;
+    
+    // 4. Render author text (centered below title)
+    let author_y = title_y + 80; // Below title with spacing
+    render_text_rusttype(&mut img, &author_font, author, 16, author_y, 200, 24)?;
+    
+    // 5. Apply e-ink quantization if enabled
+    let gray_levels = gray_levels.unwrap_or(vec![0, 85, 170, 255]);
+    let img_dynamic = DynamicImage::ImageLuma8(img);
+    let img_result = quantize_to_gray_levels(&img_dynamic, &gray_levels);
+    let img = match img_result {
+        DynamicImage::ImageLuma8(luma) => luma,
+        _ => panic!("Expected Luma8 image"),
+    };
+    
+    // 6. Convert to RGB for JPEG encoding by wrapping in DynamicImage
+    let img_dynamic = DynamicImage::ImageLuma8(img);
+    let rgb_img = img_dynamic.to_rgb8();
+    
+    // 7. Encode as JPEG
+    let mut output = Vec::new();
+    use image::codecs::jpeg::JpegEncoder;
+    
+    let mut encoder = JpegEncoder::new_with_quality(&mut output, 85);
+    encoder.encode_image(&rgb_img).map_err(|e| {
+        ProcessingError::new(
+            "cover",
+            ProcessingErrorType::ImageProcessing(e.to_string()),
+            "Failed to encode cover image".to_string(),
+        )
+    })?;
+    
+    Ok(output)
+}
+
+/// Load title font (bold) from DejaVu font files
+fn load_title_font() -> Result<Font<'static>> {
+    // Load from embedded font bytes using try_from_vec
+    Font::try_from_bytes(FONT_BOLD).ok_or_else(|| {
+        ProcessingError::new(
+            "cover",
+            ProcessingErrorType::Other("Failed to load font".to_string()),
+            "Cannot load DejaVuSerif-Bold font".to_string(),
+        )
+    })
+}
+
+/// Load author font (regular) from DejaVu font files
+fn load_author_font() -> Result<Font<'static>> {
+    // Load from embedded font bytes using try_from_vec
+    Font::try_from_bytes(FONT_NORMAL).ok_or_else(|| {
+        ProcessingError::new(
+            "cover",
+            ProcessingErrorType::Other("Failed to load font".to_string()),
+            "Cannot load DejaVuSerif font".to_string(),
+        )
+    })
+}
+
+/// Render text onto image using rusttype
+fn render_text_rusttype(
+    img: &mut ImageBuffer<Luma<u8>, Vec<u8>>,
+    font: &Font<'_>,
+    text: &str,
+    x: u32,
+    y: u32,
+    color: u8,
+    font_size: u32
+) -> Result<()> {
+    let scale = Scale::uniform(font_size as f32);
+    
+    let v_metrics = font.v_metrics(scale);
+    let start_point = point(x as f32, y as f32 + v_metrics.ascent);
+    
+    // Layout all glyphs for the text
+    for g in font.layout(text, scale, start_point) {
+        if let Some(bb) = g.pixel_bounding_box() {
+            g.draw(|x, y, v| {
+                let px = x as i32 + bb.min.x;
+                let py = y as i32 + bb.min.y;
+                
+                if px >= 0 && py >= 0 {
+                    let px_u32 = px as u32;
+                    let py_u32 = py as u32;
+                    
+                    if px_u32 < img.width() && py_u32 < img.height() {
+                        let pixel = img.get_pixel_mut(px_u32, py_u32);
+                        // Blend with background
+                        let current = pixel[0] as f32;
+                        pixel[0] = ((color as f32 * v) + (current * (1.0 - v))) as u8;
+                    }
+                }
+            })
+        }
+    }
+    
+    Ok(())
 }
 
 /// Check if an image should be processed
@@ -430,7 +543,8 @@ mod tests {
         let result = generate_cover_image("Test", "Author", 480, 800, None);
         assert!(result.is_ok());
         let bytes = result.unwrap();
-        assert_eq!(bytes.len(), 100); // Placeholder size
+        // Real cover image should be larger than placeholder (100 bytes)
+        assert!(bytes.len() > 1000, "Cover image should be generated, got {} bytes", bytes.len());
     }
 
     #[test]
@@ -790,5 +904,185 @@ mod tests {
         
         assert!(options.light_novel_mode);
         assert!(options.light_novel_rotate_left);
+    }
+    
+    // ==================== Font Loading Tests ====================
+    
+    #[test]
+    fn test_load_title_font_success() {
+        let result = load_title_font();
+        assert!(result.is_ok());
+        let font = result.unwrap();
+        // Verify font has valid metrics
+        let scale = Scale::uniform(48.0);
+        let v_metrics = font.v_metrics(scale);
+        assert!(v_metrics.ascent > 0.0);
+        assert!(v_metrics.descent < 0.0); // Descent is negative in rusttype
+        assert!(v_metrics.line_gap >= 0.0);
+    }
+    
+    #[test]
+    fn test_load_author_font_success() {
+        let result = load_author_font();
+        assert!(result.is_ok());
+        let font = result.unwrap();
+        // Verify font has valid metrics
+        let scale = Scale::uniform(24.0);
+        let v_metrics = font.v_metrics(scale);
+        assert!(v_metrics.ascent > 0.0);
+        assert!(v_metrics.descent < 0.0);
+        assert!(v_metrics.line_gap >= 0.0);
+    }
+    
+    // ==================== Cover Generation Tests ====================
+    
+    #[test]
+    fn test_generate_cover_image_creates_valid_jpeg() {
+        let result = generate_cover_image("Test Title", "Test Author", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        // Real JPEG should be at least 1KB
+        assert!(bytes.len() > 1000, "Cover should be real JPEG, got {} bytes", bytes.len());
+        // Should start with JPEG magic bytes
+        assert_eq!(bytes[0], 0xFF);
+        assert_eq!(bytes[1], 0xD8); // JPEG SOI marker
+    }
+    
+    #[test]
+    fn test_generate_cover_image_with_custom_dimensions() {
+        let test_cases = vec![
+            (100, 100),  // Small
+            (480, 800),  // X4 default
+            (528, 792),  // X3 default
+            (800, 1200), // Large
+        ];
+        
+        for (width, height) in test_cases {
+            let result = generate_cover_image("Title", "Author", width, height, None);
+            assert!(result.is_ok(), "Failed for {}x{}", width, height);
+            
+            let bytes = result.unwrap();
+            // Decode to verify dimensions
+            use std::io::Cursor;
+            use image::codecs::jpeg::JpegDecoder;
+            use image::ImageDecoder;
+            
+            let decoder = JpegDecoder::new(Cursor::new(bytes)).expect("Failed to create decoder");
+            let dimensions = decoder.dimensions();
+            assert_eq!(dimensions.0, width);
+            assert_eq!(dimensions.1, height);
+        }
+    }
+    
+    #[test]
+    fn test_generate_cover_image_different_titles() {
+        let titles = vec![
+            "Short",
+            "A Very Long Title That Should Be Rendered Properly",
+            "Title with SpecialChars!@#",
+            "Unicode: 你好 こんにちは",
+        ];
+        
+        for title in titles {
+            let result = generate_cover_image(title, "Author", 480, 800, None);
+            assert!(result.is_ok(), "Failed for title: {}", title);
+        }
+    }
+    
+    #[test]
+    fn test_generate_cover_image_different_authors() {
+        let authors = vec![
+            "A",
+            "Very Long Author Name That Should Fit Properly",
+            "Author Name With Spaces and Names",
+        ];
+        
+        for author in authors {
+            let result = generate_cover_image("Title", author, 480, 800, None);
+            assert!(result.is_ok(), "Failed for author: {}", author);
+        }
+    }
+    
+    #[test]
+    fn test_generate_cover_image_with_gray_levels_single() {
+        let gray_levels = Some(vec![128]);
+        let result = generate_cover_image("Test", "Author", 480, 800, gray_levels);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_with_gray_levels_custom() {
+        let gray_levels = Some(vec![0, 100, 200, 255]);
+        let result = generate_cover_image("Test", "Author", 480, 800, gray_levels);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_no_gray_levels() {
+        let result = generate_cover_image("Test", "Author", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    // ==================== Edge Case Tests ====================
+    
+    #[test]
+    fn test_generate_cover_image_empty_title() {
+        let result = generate_cover_image("", "Author", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_empty_author() {
+        let result = generate_cover_image("Title", "", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_both_empty() {
+        let result = generate_cover_image("", "", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_small_dimensions() {
+        let result = generate_cover_image("Title", "Author", 100, 100, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 100);
+    }
+    
+    #[test]
+    fn test_generate_cover_image_with_unicode_characters() {
+        let result = generate_cover_image("你好世界", "Привет мир", 480, 800, None);
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(bytes.len() > 1000);
+    }
+    
+    // ==================== Performance Test ====================
+    
+    #[test]
+    fn test_generate_cover_image_performance() {
+        use std::time::{Instant};
+        
+        let start = Instant::now();
+        let result = generate_cover_image("Performance Test Title", "Performance Test Author", 480, 800, None);
+        let elapsed = start.elapsed();
+        
+        assert!(result.is_ok());
+        // Should complete within 1 second (conservative)
+        assert!(elapsed.as_millis() < 2000, "Cover generation took too long: {:?}", elapsed);
     }
 }

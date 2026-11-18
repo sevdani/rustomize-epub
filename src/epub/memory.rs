@@ -32,7 +32,11 @@ pub fn extract_epub_from_bytes(bytes: &[u8]) -> Result<EpubMemory> {
             )
         })?;
         
-        let file_path = file.mangled_name().display().to_string();
+        let file_path = file.mangled_name().map_err(|e| ProcessingError::new(
+            "memory extraction",
+            crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
+            format!("Failed to get file path for memory extraction: {}", e)
+        ))?.display().to_string();
         let mut content = Vec::new();
         
         std::io::copy(&mut file, &mut content).map_err(|e| {
