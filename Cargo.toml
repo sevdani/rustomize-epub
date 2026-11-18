@@ -1,0 +1,43 @@
+[package]
+name = "rustomize-epub"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance EPUB optimizer for e-ink devices"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/your-username/rustomize-epub"
+
+[lib]
+name = "rustomize_epub"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rustomize-epub"
+path = "src/bin/rustomize-epub.rs"
+doc = false
+
+[dependencies]
+# Core dependencies
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif"] }
+zip = { version = "3.0", default-features = false, features = ["deflate"] }
+unicode-normalization = "0.1"
+thiserror = "2.0"
+clap = { version = "4.5", features = ["derive"] }
+rayon = { version = "1.10", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.12"
+cargo-llvm-cov = "0.5"
+
+[features]
+default = []
+parallel = ["rayon"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"

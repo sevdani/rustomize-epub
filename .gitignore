@@ -1,0 +1,59 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+**/*.pdb
+
+# Cargo lock file (uncomment if building a library)
+# Cargo.lock
+
+# Cargo generate
+.cargo/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+._*
+.Trashes/
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# Testing and coverage
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+*.gcov
+
+# Benchmarking
+criterion/
+
+# Documentation
+doc/
+*.md.bk
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+**/tmp/
+**/temp/
+
