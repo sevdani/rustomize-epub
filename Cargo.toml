@@ -1,6 +1,6 @@
 [package]
 name = "rustomize-epub"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 description = "High-performance EPUB optimizer for e-ink devices"
 readme = "README.md"
