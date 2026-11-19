@@ -628,26 +628,32 @@ mod tests {
 
     #[test]
     fn test_processing_report_summary_with_images() {
-        let mut report = ProcessingReport::default();
-        report.images_converted = 10;
-        report.images_total = 15;
+        let report = ProcessingReport {
+            images_converted: 10,
+            images_total: 15,
+            ..ProcessingReport::default()
+        };
         let summary = report.summary();
         assert!(summary.contains("Converted 10/15 images"));
     }
 
     #[test]
     fn test_processing_report_summary_with_fonts() {
-        let mut report = ProcessingReport::default();
-        report.fonts_removed = 5;
+        let report = ProcessingReport {
+            fonts_removed: 5,
+            ..ProcessingReport::default()
+        };
         let summary = report.summary();
         assert!(summary.contains("Removed 5 embedded fonts"));
     }
 
     #[test]
     fn test_processing_report_summary_with_size_reduction() {
-        let mut report = ProcessingReport::default();
-        report.original_size = 1000;
-        report.optimized_size = 500;
+        let report = ProcessingReport {
+            original_size: 1000,
+            optimized_size: 500,
+            ..ProcessingReport::default()
+        };
         let summary = report.summary();
         assert!(summary.contains("Size:"));
         assert!(summary.contains("50.0% reduction"));

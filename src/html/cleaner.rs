@@ -1,6 +1,5 @@
 //! HTML cleaner - repair and strip attributes
 
-use std::collections::HashSet;
 use crate::{ProcessingOptions, ProcessingError};
 
 /// Attributes to keep during stripping (essential for EPUB rendering)
@@ -23,40 +22,6 @@ const _STRIP_ATTRS: &[&str] = &[
     "translate", "inputmode", "enterkeyhint",
     "hidden", "inert", "popover",
 ];
-
-/// Repair malformed HTML/XHTML
-/// 
-/// This function attempts to repair broken XHTML/HTML files using a
-/// recovery parser approach similar to epubkit's Python implementation.
-/// 
-/// Algorithm:
-/// 1. Try parsing as valid XML first (XHTML should be well-formed)
-/// 2. If that fails, use HTML recovery parser (for malformed HTML)
-/// 3. Re-serialize as clean XHTML
-pub fn repair_html(html_bytes: &[u8]) -> Vec<u8> {
-    // Step 1: Try parsing as proper XML first (XHTML should be valid XML)
-    // quick-xml doesn't have direct pretty-print, so we use a different approach
-    // For now, use String conversion and basic validation
-    
-    // First, validate UTF-8 encoding
-    let content = match std::str::from_utf8(html_bytes) {
-        Ok(c) => c,
-        Err(_) => return html_bytes.to_vec(), // Invalid UTF-8, return as-is
-    };
-    
-    // Try basic XML validation
-    if content.trim().starts_with('<') {
-        // Basic structure check - for a complete implementation we'd need
-        // a full XML parser with recovery support
-        // For now, return the content as-is with basic UTF-8 normalization
-        let normalized = content.replace("\r\n", "\n").replace("\r", "\n");
-        return normalized.into_bytes();
-    }
-    
-    // If it doesn't start with <, it's not valid XML/HTML
-    // Return as-is
-    html_bytes.to_vec()
-}
 
 /// Strip unnecessary attributes from HTML
 /// 
@@ -100,56 +65,6 @@ fn strip_attributes_from_html(html: &str) -> String {
     result = regex::Regex::new(r#" tabindex="[^"]*""#).unwrap().replace_all(&result, "").to_string();
     
     result
-}
-
-/// Collect used CSS selectors from HTML
-pub fn collect_used_selectors(html_bytes: &[u8]) -> (HashSet<String>, HashSet<String>, HashSet<String>) {
-    let mut classes = HashSet::new();
-    let mut ids = HashSet::new();
-    let mut elements = HashSet::new();
-    
-    let content = match std::str::from_utf8(html_bytes) {
-        Ok(c) => c,
-        Err(_) => return (classes, ids, elements),
-    };
-    
-    // Collect classes
-    let class_re = regex::Regex::new(r#" class="([^"]*)""#).unwrap();
-    for cap in class_re.captures_iter(content) {
-        for cls in cap[1].split_whitespace() {
-            classes.insert(cls.to_string());
-        }
-    }
-    
-    // Collect IDs
-    let id_re = regex::Regex::new(r#" id="([^"]*)""#).unwrap();
-    for cap in id_re.captures_iter(content) {
-        ids.insert(cap[1].to_string());
-    }
-    
-    // Collect element names
-    let elem_re = regex::Regex::new(r#"<([a-zA-Z][a-zA-Z0-9-]*)"#).unwrap();
-    for cap in elem_re.captures_iter(content) {
-        elements.insert(cap[1].to_string().to_lowercase());
-    }
-    
-    (classes, ids, elements)
-}
-
-/// Repair malformed HTML/XHTML (simplified version using regex)
-pub fn repair_html_simple(html_bytes: &[u8]) -> Vec<u8> {
-    let content = match std::str::from_utf8(html_bytes) {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
-    };
-    
-    // Basic cleanup: fix unclosed tags, normalize whitespace
-    let mut result = content.replace("\r\n", "\n").replace("\r", "\n");
-    
-    // Collapse multiple newlines
-    result = regex::Regex::new(r"\n\s*\n\s*\n+").unwrap().replace_all(&result, "\n\n").to_string();
-    
-    result.into_bytes()
 }
 
 /// Add page breaks to chapter headings
@@ -271,13 +186,17 @@ mod tests {
 
     #[test]
     fn test_html_clean_report_merge() {
-        let mut report1 = HtmlCleanReport::default();
-        report1.whitespace_cleaned = 5;
-        report1.attrs_stripped = 3;
+        let mut report1 = HtmlCleanReport {
+            whitespace_cleaned: 5,
+            attrs_stripped: 3,
+            ..HtmlCleanReport::default()
+        };
 
-        let mut report2 = HtmlCleanReport::default();
-        report2.whitespace_cleaned = 2;
-        report2.attrs_stripped = 1;
+        let report2 = HtmlCleanReport {
+            whitespace_cleaned: 2,
+            attrs_stripped: 1,
+            ..HtmlCleanReport::default()
+        };
 
         report1.merge(&report2);
 
@@ -384,16 +303,21 @@ mod tests {
 
         assert!(report.errors.is_empty());
         let output_str = String::from_utf8(output).unwrap();
-        assert!(output_str.len() > 0);
+        assert_eq!(output_str.len(), 39);
     }
 
     #[test]
     fn test_html_clean_report_merge_with_errors() {
-        let mut report1 = HtmlCleanReport::default();
-        report1.whitespace_cleaned = 5;
+        let mut report1 = HtmlCleanReport {
+            whitespace_cleaned: 5,
+            ..HtmlCleanReport::default()
+        };
 
-        let mut report2 = HtmlCleanReport::default();
-        report2.whitespace_cleaned = 2;
+        let mut report2 = HtmlCleanReport {
+            whitespace_cleaned: 2,
+            ..HtmlCleanReport::default()
+        };
+
         let error = ProcessingError::new(
             "test.html",
             crate::error::ProcessingErrorType::HtmlParsing("error".to_string()),
@@ -408,49 +332,8 @@ mod tests {
     }
 
     #[test]
-    fn test_repair_html_valid_xhtml() {
-        // Valid XHTML should be normalized
-        let input = b"<!DOCTYPE html>\n<html>\n<body>\n<p>Hello</p>\n</body>\n</html>";
-        let output = repair_html(input);
-        
-        // Should return normalized UTF-8
-        assert!(output.len() > 0);
-        assert!(String::from_utf8_lossy(&output).contains("Hello"));
-    }
-
-    #[test]
-    fn test_repair_html_invalid_utf8() {
-        // Invalid UTF-8 should return as-is
-        let input = &[0xff, 0xfe, 0xfd, b'a', b'b', b'c'];
-        let output = repair_html(input);
-        
-        // Should return as-is
-        assert_eq!(output, input);
-    }
-
-    #[test]
-    fn test_repair_html_empty() {
-        // Empty input should return empty
-        let input = b"";
-        let output = repair_html(input);
-        
-        assert_eq!(output, input);
-    }
-
-    #[test]
-    fn test_repair_html_malformed_xml() {
-        // Malformed XML should be normalized
-        let input = b"<html><head><title>test<body><h1>page title</h3>";
-        let output = repair_html(input);
-        
-        // Should return normalized content
-        assert!(output.len() > 0);
-        assert!(String::from_utf8_lossy(&output).contains("page title"));
-    }
-
-    #[test]
     fn test_strip_attributes_from_html_basic() {
-        let input = r#"<div id="main" class="content">Text</div>"#;
+        let input = r#"<div id="main" class="content">Text</div>";
         let output = strip_attributes_from_html(input);
         
         // Basic attributes should be preserved
@@ -523,27 +406,13 @@ mod tests {
     }
 
     #[test]
-    fn test_collect_used_selectors() {
-        let input = r#"<html><body><div class="chapter" id="chap1"><p class="para">Text</p></div></body></html>"#;
-        let (classes, ids, elements) = collect_used_selectors(input.as_bytes());
-        
-        assert!(classes.contains("chapter"));
-        assert!(classes.contains("para"));
-        assert!(ids.contains("chap1"));
-        assert!(elements.contains("div"));
-        assert!(elements.contains("p"));
-        assert!(elements.contains("body"));
-        assert!(elements.contains("html"));
-    }
-
-    #[test]
     fn test_add_chapter_page_breaks_no_head() {
         // Input without head - should not crash
         let input = b"<html><body><h1>Chapter</h1></body></html>";
         let output = add_chapter_page_breaks(input);
         
         // Should handle gracefully
-        assert!(output.len() > 0);
+        assert_eq!(output.len(), 128);
     }
 
     #[test]

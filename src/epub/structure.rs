@@ -109,25 +109,6 @@ fn extract_attribute(element: &str, attr_name: &str) -> Option<String> {
     None
 }
 
-/// Build a mapping of old image paths to new paths
-pub fn build_rename_map(
-    _base_path: &str,
-    processed_images: HashMap<String, String>
-) -> HashMap<String, String> {
-    let mut rename_map = HashMap::new();
-    
-    for (old_path, new_name) in processed_images {
-        // Convert path to file name only for simplicity
-        let _old_name = old_path.split('/').next_back().unwrap_or(&old_path);
-        
-        let new_path = new_name;
-        
-        rename_map.insert(old_path, new_path);
-    }
-    
-    rename_map
-}
-
 /// Update OPF manifest entries when images are renamed (memory-based)
 pub fn update_opf_content(opf_content: &str, rename_map: &HashMap<String, String>) -> String {
     let mut new_content = opf_content.to_string();
@@ -268,6 +249,49 @@ fn find_ncx_path_from_content(opf_content: &str) -> Option<String> {
     }
 }
 
+/// Add cover reference to OPF manifest
+pub fn add_cover_to_opf_content(opf_content: &str, cover_path: &str) -> String {
+    let mut new_content = opf_content.to_string();
+    
+    // Get the directory path from cover_path for the media-type
+    let cover_filename = Path::new(cover_path)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("cover.jpg");
+    
+    let cover_extension = Path::new(cover_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
+    
+    let media_type = match cover_extension.to_lowercase().as_str() {
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "image/jpeg",
+    };
+    
+    // Add cover image to manifest
+    let manifest_insert = format!("\n    <item id=\"cover\" href=\"{}\" media-type=\"{}\"/>", cover_path, media_type);
+    
+    // Find the manifest section and add the cover item before </manifest>
+    if let Some(manifest_end) = new_content.find("</manifest>") {
+        new_content.insert_str(manifest_end, &manifest_insert);
+    }
+    
+    // Add cover meta tag if not exists
+    if !new_content.contains("name=\"cover\"") {
+        let meta_tag = format!("\n    <meta name=\"cover\" content=\"{}\"/>", cover_filename);
+        
+        // Find manifest end again (positions may have changed)
+        if let Some(manifest_end) = new_content.find("</manifest>") {
+            new_content.insert_str(manifest_end, &meta_tag);
+        }
+    }
+    
+    new_content
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,15 +417,6 @@ mod tests {
     }
 
     #[test]
-    fn test_build_rename_map() {
-        let mut processed = HashMap::new();
-        processed.insert("images/old.jpg".to_string(), "images/new.jpg".to_string());
-        
-        let rename_map = build_rename_map("", processed);
-        assert!(rename_map.contains_key("images/old.jpg"));
-    }
-
-    #[test]
     fn test_fix_svg_covers_content() {
         let opf_content = r#"<manifest>
             <item href="cover.svg" media-type="image/svg+xml"/>
@@ -463,47 +478,4 @@ mod tests {
         let result = add_cover_to_opf_content(opf_content, "OEBPS/images/cover.jpg");
         assert!(result.contains("cover.jpg"));
     }
-}
-
-/// Add cover reference to OPF manifest
-pub fn add_cover_to_opf_content(opf_content: &str, cover_path: &str) -> String {
-    let mut new_content = opf_content.to_string();
-    
-    // Get the directory path from cover_path for the media-type
-    let cover_filename = Path::new(cover_path)
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or("cover.jpg");
-    
-    let cover_extension = Path::new(cover_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("jpg");
-    
-    let media_type = match cover_extension.to_lowercase().as_str() {
-        "png" => "image/png",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        _ => "image/jpeg",
-    };
-    
-    // Add cover image to manifest
-    let manifest_insert = format!("\n    <item id=\"cover\" href=\"{}\" media-type=\"{}\"/>", cover_path, media_type);
-    
-    // Find the manifest section and add the cover item before </manifest>
-    if let Some(manifest_end) = new_content.find("</manifest>") {
-        new_content.insert_str(manifest_end, &manifest_insert);
-    }
-    
-    // Add cover meta tag if not exists
-    if !new_content.contains("name=\"cover\"") {
-        let meta_tag = format!("\n    <meta name=\"cover\" content=\"{}\"/>", cover_filename);
-        
-        // Find manifest end again (positions may have changed)
-        if let Some(manifest_end) = new_content.find("</manifest>") {
-            new_content.insert_str(manifest_end, &meta_tag);
-        }
-    }
-    
-    new_content
 }

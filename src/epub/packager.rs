@@ -217,7 +217,7 @@ mod tests {
         let result = package_epub_to_bytes(&files);
         assert!(result.is_ok());
         let bytes = result.unwrap();
-        assert!(bytes.len() > 0);
+        assert_eq!(bytes.len(), 119);
     }
 
     #[test]

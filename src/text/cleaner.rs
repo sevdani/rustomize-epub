@@ -268,11 +268,17 @@ mod tests {
 
     #[test]
     fn test_text_clean_report_merge() {
-        let mut report1 = TextCleanReport::default();
-        report1.double_spaces_fixed = 5;
-        report1.ocr_ligatures_fixed = 3;
+        let mut report1 = TextCleanReport {
+            double_spaces_fixed: 5,
+            ocr_ligatures_fixed: 3,
+            ..TextCleanReport::default()
+        };
 
-        let mut report2 = TextCleanReport::default();
+        let mut report2 = TextCleanReport {
+            double_spaces_fixed: 2,
+            smart_quotes_normalized: 1,
+          ..TextCleanReport::default()
+        };
         report2.double_spaces_fixed = 2;
         report2.smart_quotes_normalized = 1;
 
@@ -285,19 +291,23 @@ mod tests {
 
     #[test]
     fn test_text_clean_report_total_fixes() {
-        let mut report = TextCleanReport::default();
-        report.double_spaces_fixed = 5;
-        report.ocr_ligatures_fixed = 3;
-        report.smart_quotes_normalized = 2;
+        let report = TextCleanReport {
+            double_spaces_fixed: 5,
+            ocr_ligatures_fixed: 3,
+            smart_quotes_normalized: 2,
+            ..TextCleanReport::default()
+        };
 
         assert_eq!(report.total_fixes(), 10);
     }
 
     #[test]
     fn test_text_clean_report_summary() {
-        let mut report = TextCleanReport::default();
-        report.double_spaces_fixed = 5;
-        report.ocr_ligatures_fixed = 3;
+        let report = TextCleanReport {
+            double_spaces_fixed: 5,
+            ocr_ligatures_fixed: 3,
+            ..TextCleanReport::default()
+        };
 
         let summary = report.summary();
         assert!(summary.contains("5 extra spaces"));
@@ -429,7 +439,7 @@ mod tests {
         let (output, report) = clean_text_content_from_bytes(input, &options);
 
         assert!(output.is_empty());
-        assert!(report.errors.len() > 0);
+        assert_eq!(report.errors.len(), 1);
     }
 
     #[test]
@@ -598,13 +608,16 @@ mod tests {
 
     #[test]
     fn test_text_clean_report_summary_all_types() {
-        let mut report = TextCleanReport::default();
-        report.double_spaces_fixed = 1;
-        report.ocr_ligatures_fixed = 1;
-        report.smart_quotes_normalized = 1;
-        report.encoding_issues_fixed = 1;
-        report.punctuation_fixed = 1;
-        report.unicode_normalized = 1;
+        let report = TextCleanReport {
+            double_spaces_fixed: 1,
+            ocr_ligatures_fixed: 1,
+            smart_quotes_normalized: 1,
+            encoding_issues_fixed: 1,
+            punctuation_fixed: 1,
+            unicode_normalized: 1,
+            ..TextCleanReport::default()
+        };
+
 
         let summary = report.summary();
         assert!(summary.contains("1 extra spaces"));

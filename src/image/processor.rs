@@ -595,9 +595,11 @@ mod tests {
         JpegEncoder::new_with_quality(&mut buffer, 80)
             .encode_image(&img).expect("Failed to encode JPEG");
         
-        let mut options = ImageOptions::default();
-        options.light_novel_mode = true;
-        
+        let options = ImageOptions {
+            light_novel_mode: true,
+            ..ImageOptions::default()
+        };
+
         let result = process_image(&buffer, "landscape.jpg", &options);
         
         assert!(result.is_ok());
@@ -620,9 +622,11 @@ mod tests {
         JpegEncoder::new_with_quality(&mut buffer, 80)
             .encode_image(&img).expect("Failed to encode JPEG");
         
-        let mut options = ImageOptions::default();
-        options.grayscale = true;
-        
+        let options = ImageOptions {
+            grayscale: true,
+            ..ImageOptions::default()
+        };
+
         let result = process_image(&buffer, "test.jpg", &options);
         
         assert!(result.is_ok());
@@ -889,19 +893,23 @@ mod tests {
 
     #[test]
     fn test_process_image_with_eink_quantization() {
-        let mut options = ImageOptions::default();
-        options.eink_quantize = true;
-        
+        let options = ImageOptions {
+            eink_quantize: true,
+            ..ImageOptions::default()
+        };
+
         assert!(options.eink_quantize);
         assert_eq!(options.gray_levels, vec![0, 85, 170, 255]);
     }
 
     #[test]
     fn test_process_image_light_novel_mode_rotate_left() {
-        let mut options = ImageOptions::default();
-        options.light_novel_mode = true;
-        options.light_novel_rotate_left = true;
-        
+        let options = ImageOptions {
+            light_novel_mode: true,
+            light_novel_rotate_left: true,
+            ..ImageOptions::default()
+        };
+
         assert!(options.light_novel_mode);
         assert!(options.light_novel_rotate_left);
     }

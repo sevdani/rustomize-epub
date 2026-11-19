@@ -13,7 +13,7 @@ use crate::html::font_remover::remove_fonts_from_css_content;
 use crate::html::css_cleaner::cleanup_css_content;
 use crate::metadata::cleaner::clean_metadata_content;
 use crate::metadata::extractor::{extract_title_from_opf, extract_creator_from_opf};
-use crate::metadata::editor::apply_metadata_edits_memory;
+use crate::metadata::editor::{apply_metadata_edits};
 use crate::metadata::formatter::{generate_filename_from_template, generate_filename_from_preset};
 use crate::toc::generator::{generate_ncx_content_memory, generate_nav_content_memory, add_ncx_to_opf_content, add_nav_to_opf_content};
 
@@ -89,7 +89,7 @@ pub fn process_epub_memory(
     let mut opf_content = opf_content;
     let mut metadata_edits_applied = false;
     if let Some(edits) = &options.metadata_edits {
-        opf_content = apply_metadata_edits_memory(&opf_content, edits);
+        opf_content = apply_metadata_edits(&opf_content, edits);
         files.insert(opf_path.clone(), opf_content.clone().into_bytes());
         metadata_edits_applied = true;
     }
@@ -488,16 +488,18 @@ mod tests {
         let input_bytes = crate::epub::packager::package_epub_to_bytes(&files).expect("Failed to package EPUB");
         
         // Process with cover generation enabled
-        let mut options = crate::ProcessingOptions::default();
-        options.generate_missing_cover = true;
-        
+        let options = ProcessingOptions {
+            generate_missing_cover: true,
+            ..ProcessingOptions::default()
+        };
+
         let (output_bytes, report) = process_epub_memory(&input_bytes, &options).expect("Processing failed");
         
         // Verify cover was generated
         assert!(report.cover_generated, "Cover should have been generated");
         
         // Verify output is a valid EPUB
-        assert!(output_bytes.len() > 0);
+        assert_eq!(output_bytes.len(), 9324);
     }
     
     #[test]
