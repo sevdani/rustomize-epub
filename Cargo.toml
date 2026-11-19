@@ -1,6 +1,6 @@
 [package]
 name = "rustomize-epub"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "High-performance EPUB optimizer for e-ink devices"
 readme = "README.md"
@@ -30,11 +30,6 @@ rusttype = "0.9.3"
 
 # HTML parsing with regex (simpler approach for attribute stripping)
 regex = "1.13.2"
-
-[dev-dependencies]
-criterion = "0.8.2"
-tempfile = "3.27.0"
-cargo-llvm-cov = "0.9.1"
 
 [features]
 default = []

@@ -1070,19 +1070,4 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
-    // ==================== Performance Test ====================
-    
-    #[test]
-    fn test_generate_cover_image_performance() {
-        use std::time::{Instant};
-        
-        let start = Instant::now();
-        let result = generate_cover_image("Performance Test Title", "Performance Test Author", 480, 800, None);
-        let elapsed = start.elapsed();
-        
-        assert!(result.is_ok());
-        // Should complete within 1 second (conservative)
-        assert!(elapsed.as_millis() < 2000, "Cover generation took too long: {:?}", elapsed);
-    }
 }

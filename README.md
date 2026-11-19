@@ -4,7 +4,7 @@ High-performance EPUB optimizer for (microcontroller) e-ink devices.
 
 ## Processing Pipeline
 
-rustomize-epub implements the same 20-step pipeline as epubkit:
+rustomize-epub implements the same 20-step pipeline as [epubkit](https://github.com/b1rdmania/epubkit):
 
 | Step | What it does |
 |------|-------------|
@@ -34,7 +34,7 @@ rustomize-epub implements the same 20-step pipeline as epubkit:
 - **Written in Rust**: High execution speed with strong memory safety
 - **In-memory processing**: Ultra-fast speed and low latency
 - **CLI binary**: Run commands for batch processing
-- **API**: Use the library to integrate into your own apps
+- **API**: Use the library to integrate into your own app
 
 ## Installation
 
@@ -113,6 +113,31 @@ rustomize-epub -i input.epub -o output.epub \
 | Full   | Yes    | Yes  | Yes   | Yes | Yes   | Yes      | Complete device optimization |
 | Custom | Custom | Custom| Custom| Custom| Custom| Custom   | Fine-grained control |
 
+## Credits
+
+[epubkit](https://github.com/b1rdmania/epubkit): The core logic is based on this repo.
+
 ## License
 
 MIT
+
+## Release Process
+
+Releases are manually triggered through GitHub Actions:
+
+1. Go to the **Actions** tab in your GitHub repository
+2. Select the **Mainline Release** workflow
+3. Click **Run workflow** dropdown
+4. Choose the version bump type:
+   - **patch**: Increment patch version (1.0.0 → 1.0.1)
+   - **minor**: Increment minor version (1.0.0 → 1.1.0)
+   - **major**: Increment major version (1.0.0 → 2.0.0)
+5. Optionally enable **dry_run** to preview changes without committing
+6. Click **Run workflow**
+
+The workflow will:
+- Update `Cargo.toml` with the new version
+- Create a git tag (e.g., `v1.0.0`)
+- Build release binaries for Linux, macOS, and Windows
+- Publish to [crates.io](https://crates.io)
+- Create a GitHub Release with downloadable artifacts
