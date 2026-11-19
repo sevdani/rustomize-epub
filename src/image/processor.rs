@@ -363,15 +363,6 @@ pub fn process_images_from_bytes(
     image_files: HashMap<String, Vec<u8>>,
     options: &crate::ProcessingOptions
 ) -> Result<(HashMap<String, Vec<u8>>, ImageProcessingReport)> {
-    #[cfg(feature = "parallel")]
-    let results: Vec<_> = {
-        use rayon::prelude::*;
-        
-        image_files.par_iter().map(|(path, bytes)| {
-            process_single_image_from_bytes(bytes, path, options)
-        }).collect()
-    };
-    
     #[cfg(not(feature = "parallel"))]
     let results: Vec<_> = {
         image_files.iter().map(|(path, bytes)| {

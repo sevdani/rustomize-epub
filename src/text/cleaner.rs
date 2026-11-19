@@ -2,9 +2,6 @@
 
 use unicode_normalization::UnicodeNormalization;
 
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
-
 /// Common OCR ligature/artifact mappings
 const OCR_LIGATURES: &[(&str, &str)] = &[
     ("\u{fb01}", "fi"),
