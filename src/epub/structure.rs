@@ -216,13 +216,23 @@ pub fn fix_svg_covers_content(opf_content: &str) -> (String, usize) {
     (new_content, fixed_count)
 }
 
-/// Fix or regenerate TOC - check if TOC exists (memory-based)
+/// Result of TOC fixing
+#[derive(Debug, Clone)]
+pub struct TocFixResult {
+    pub is_valid: bool,
+    pub status: String,
+    pub ncx_exists: bool,
+    pub nav_exists: bool,
+    pub nav_point_count: usize,
+}
+
+/// Fix or regenerate TOC - check if TOC exists (memory-based, for backward compatibility)
 pub fn fix_toc_content(opf_content: &str) -> (bool, String) {
     // Check if NCX exists
     let ncx_exists = opf_content.contains("application/x-dtbncx+xml");
     
     if ncx_exists {
-        // TOC exists, validate it
+        // TOC exists
         if let Some(_ncx_path) = find_ncx_path_from_content(opf_content) {
             return (true, "Existing TOC is valid".to_string());
         }

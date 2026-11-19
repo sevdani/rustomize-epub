@@ -18,7 +18,7 @@ doc = false
 
 [dependencies]
 # Core dependencies
-image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif"] }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "gif", "color_quant"] }
 zip = { version = "9.7.0", default-features = false, features = ["deflate"] }
 unicode-normalization = "0.1.26"
 thiserror = "2.0.21"
