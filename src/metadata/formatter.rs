@@ -13,34 +13,34 @@ pub fn generate_filename_from_template(
     template: &str,
 ) -> String {
     let mut result = template.to_string();
-    
+
     // Replace placeholders
     result = result.replace("{title}", title);
     result = result.replace("{author}", author);
-    
+
     if let Some(s) = series {
         result = result.replace("{series}", s);
     } else {
         // Remove {series} placeholder if no series
         result = result.replace("{series}", "");
     }
-    
+
     if let Some(i) = series_index {
         result = result.replace("{series_index}", i);
     } else {
         result = result.replace("{series_index}", "");
     }
-    
+
     if let Some(lang) = language {
         result = result.replace("{language}", lang);
     } else {
         result = result.replace("{language}", "");
     }
-    
+
     // Clean up double spaces and dashes
     result = result.split_whitespace().collect::<Vec<&str>>().join(" ");
     result = result.replace("  ", " ");
-    
+
     sanitize_filename(&result)
 }
 
@@ -52,18 +52,28 @@ pub fn generate_filename_from_preset(
     original_name: Option<&str>,
 ) -> String {
     let filename = match preset {
-        FilenameFormat::Original => {
-            original_name.map(|s| s.to_string()).unwrap_or_else(|| "book.epub".to_string())
-        }
-        FilenameFormat::TitleAuthor => format!("{} - {}.epub", sanitize_filename(title), sanitize_filename(author)),
-        FilenameFormat::AuthorTitle => format!("{} - {}.epub", sanitize_filename(author), sanitize_filename(title)),
+        FilenameFormat::Original => original_name
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "book.epub".to_string()),
+        FilenameFormat::TitleAuthor => format!(
+            "{} - {}.epub",
+            sanitize_filename(title),
+            sanitize_filename(author)
+        ),
+        FilenameFormat::AuthorTitle => format!(
+            "{} - {}.epub",
+            sanitize_filename(author),
+            sanitize_filename(title)
+        ),
         FilenameFormat::TitleOnly => format!("{}.epub", sanitize_filename(title)),
         FilenameFormat::Custom => {
             // This should have been handled by template-based generation
-            original_name.map(|s| s.to_string()).unwrap_or_else(|| "book.epub".to_string())
+            original_name
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "book.epub".to_string())
         }
     };
-    
+
     filename
 }
 
@@ -71,21 +81,21 @@ pub fn generate_filename_from_preset(
 fn sanitize_filename(name: &str) -> String {
     // Remove/replace invalid characters for filenames
     let mut result = name.to_string();
-    
+
     // Replace invalid characters with underscores
     for c in &['<', '>', ':', '"', '/', '\\', '|', '?', '*'] {
         result = result.replace(*c, "_");
     }
-    
+
     // Remove leading/trailing whitespace
     result = result.trim().to_string();
-    
+
     // Replace multiple spaces with single space
     result = result.split_whitespace().collect::<Vec<&str>>().join(" ");
-    
+
     // Remove trailing dots (Windows issue)
     result = result.trim_end_matches('.').to_string();
-    
+
     result
 }
 
@@ -158,34 +168,22 @@ mod tests {
 
     #[test]
     fn test_generate_filename_preset_title_author() {
-        let result = generate_filename_from_preset(
-            "Title",
-            "Author",
-            FilenameFormat::TitleAuthor,
-            None,
-        );
+        let result =
+            generate_filename_from_preset("Title", "Author", FilenameFormat::TitleAuthor, None);
         assert_eq!(result, "Title - Author.epub");
     }
 
     #[test]
     fn test_generate_filename_preset_author_title() {
-        let result = generate_filename_from_preset(
-            "Title",
-            "Author",
-            FilenameFormat::AuthorTitle,
-            None,
-        );
+        let result =
+            generate_filename_from_preset("Title", "Author", FilenameFormat::AuthorTitle, None);
         assert_eq!(result, "Author - Title.epub");
     }
 
     #[test]
     fn test_generate_filename_preset_title_only() {
-        let result = generate_filename_from_preset(
-            "Title",
-            "Author",
-            FilenameFormat::TitleOnly,
-            None,
-        );
+        let result =
+            generate_filename_from_preset("Title", "Author", FilenameFormat::TitleOnly, None);
         assert_eq!(result, "Title.epub");
     }
 
@@ -226,9 +224,9 @@ mod tests {
         let result = generate_filename_from_template(
             "Title",
             "Author",
-            None,  // No series
-            None,  // No series_index
-            None,  // No language
+            None, // No series
+            None, // No series_index
+            None, // No language
             "{title} - {author} ({series} {series_index}) [{language}].epub",
         );
         // Missing fields should be removed (empty)

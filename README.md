@@ -141,3 +141,4 @@ The workflow will:
 - Build release binaries for Linux, macOS, and Windows
 - Publish to [crates.io](https://crates.io)
 - Create a GitHub Release with downloadable artifacts
+

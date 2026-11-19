@@ -5,43 +5,49 @@ use zip::ZipArchive;
 /// Check if an EPUB file contains DRM (memory-based)
 pub fn has_drm_from_bytes(bytes: &[u8]) -> Result<bool, crate::ProcessingError> {
     use std::io::Cursor;
-    
+
     let reader = Cursor::new(bytes);
     let mut archive = ZipArchive::new(reader).map_err(|e| {
         crate::error::ProcessingError::new(
             "input bytes",
             crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
-            format!("Failed to open ZIP archive: {}", e)
+            format!("Failed to open ZIP archive: {}", e),
         )
     })?;
-    
+
     // Check for DRM files
     let drm_indicators = [
         "application/vnd.adobe-pdf-vector",
         "application/vnd.adobe-pdf+xml",
         "application/xaad-pdfs",
     ];
-    
+
     for i in 0..archive.len() {
         let file = archive.by_index(i).map_err(|e| {
             crate::error::ProcessingError::new(
                 i.to_string(),
                 crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
-                format!("Failed to access archive entry {}: {}", i, e)
+                format!("Failed to access archive entry {}: {}", i, e),
             )
         })?;
-        
-        let name = file.mangled_name().map_err(|e| crate::error::ProcessingError::new(
-            "DRM check",
-            crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
-            format!("Failed to get file name for DRM check: {}", e)
-        ))?.display().to_string();
-        
+
+        let name = file
+            .mangled_name()
+            .map_err(|e| {
+                crate::error::ProcessingError::new(
+                    "DRM check",
+                    crate::error::ProcessingErrorType::ZipProcessing(e.to_string()),
+                    format!("Failed to get file name for DRM check: {}", e),
+                )
+            })?
+            .display()
+            .to_string();
+
         // Check for known DRM-related files
         if name.contains("rights") || name.contains("license") || name.contains("DRM") {
             return Ok(true);
         }
-        
+
         // Check for DRM content types
         for indicator in drm_indicators.iter() {
             if name.contains(indicator) {
@@ -49,7 +55,7 @@ pub fn has_drm_from_bytes(bytes: &[u8]) -> Result<bool, crate::ProcessingError> 
             }
         }
     }
-    
+
     Ok(false)
 }
 

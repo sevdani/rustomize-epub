@@ -1,6 +1,6 @@
 /// rustomize-epub CLI binary
 use clap::Parser;
-use rustomize_epub::{process_epub_path, ProcessingOptions, DeviceProfile, MetadataEdits};
+use rustomize_epub::{process_epub_path, DeviceProfile, MetadataEdits, ProcessingOptions};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -140,9 +140,12 @@ fn main() {
     };
 
     // Apply metadata edits from CLI
-    if cli.title.is_some() || cli.author.is_some() || 
-       cli.series.is_some() || cli.series_index.is_some() || 
-       cli.language.is_some() {
+    if cli.title.is_some()
+        || cli.author.is_some()
+        || cli.series.is_some()
+        || cli.series_index.is_some()
+        || cli.language.is_some()
+    {
         options.metadata_edits = Some(MetadataEdits {
             title: cli.title,
             author: cli.author,
@@ -221,11 +224,13 @@ fn main() {
                 println!("\n=== Processing Complete ===");
                 println!("Original size: {}", format_size(report.original_size));
                 println!("Optimized size: {}", format_size(report.optimized_size));
-                println!("Size reduction: {:.1}%", 
-                    100.0 * (1.0 - (report.optimized_size as f64) / (report.original_size as f64)));
+                println!(
+                    "Size reduction: {:.1}%",
+                    100.0 * (1.0 - (report.optimized_size as f64) / (report.original_size as f64))
+                );
                 println!("Elapsed time: {:.2}s", elapsed.as_secs_f64());
                 println!("\n{}", report.summary());
-                
+
                 if cli.verbose {
                     println!("\n=== Detailed Report ===");
                     println!("Success: {}", report.success);
@@ -233,12 +238,15 @@ fn main() {
                     if !report.errors.is_empty() {
                         println!("Errors: {}", report.errors.len());
                         for error in &report.errors {
-                            println!("  - {}: {} ({})", error.item, error.details, error.error_type);
+                            println!(
+                                "  - {}: {} ({})",
+                                error.item, error.details, error.error_type
+                            );
                         }
                     }
                 }
             }
-            
+
             if cli.verbose || cli.output_dir.is_some() {
                 println!("\nOutput file: {:?}", cli.output);
             }
@@ -310,19 +318,49 @@ mod tests {
 
     #[test]
     fn test_cli_parser_with_preset() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "-p", "quick"]);
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "-p",
+            "quick",
+        ]);
         assert_eq!(cli.preset, "quick");
     }
 
     #[test]
     fn test_cli_parser_with_device() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "-d", "x3"]);
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "-d",
+            "x3",
+        ]);
         assert_eq!(cli.device, "x3");
     }
 
     #[test]
     fn test_cli_parser_with_custom_device() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "-d", "custom", "--width", "600", "--height", "800", "--ppi", "234"]);
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "-d",
+            "custom",
+            "--width",
+            "600",
+            "--height",
+            "800",
+            "--ppi",
+            "234",
+        ]);
         assert_eq!(cli.device, "custom");
         assert_eq!(cli.width, Some(600));
         assert_eq!(cli.height, Some(800));
@@ -333,10 +371,14 @@ mod tests {
     fn test_cli_parser_with_all_flags() {
         let cli = Cli::parse_from([
             "rustomize-epub",
-            "-i", "input.epub",
-            "-o", "output.epub",
-            "-d", "x4",
-            "-p", "full",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "-d",
+            "x4",
+            "-p",
+            "full",
             "--no-images",
             "--no-text",
             "--no-fonts",
@@ -346,7 +388,8 @@ mod tests {
             "--light-novel",
             "-v",
             "-q",
-            "--max-threads", "4",
+            "--max-threads",
+            "4",
         ]);
         assert!(cli.no_images);
         assert!(cli.no_text);
@@ -362,14 +405,32 @@ mod tests {
 
     #[test]
     fn test_cli_parser_with_filename_options() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "--filename-template", "{title}-optimized", "--filename-format", "title-author"]);
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "--filename-template",
+            "{title}-optimized",
+            "--filename-format",
+            "title-author",
+        ]);
         assert_eq!(cli.filename_template, Some("{title}-optimized".to_string()));
         assert_eq!(cli.filename_format, Some("title-author".to_string()));
     }
 
     #[test]
     fn test_cli_with_output_dir() {
-        let cli = Cli::parse_from(["rustomize-epub", "-i", "input.epub", "-o", "output.epub", "--output-dir", "/tmp"]);
+        let cli = Cli::parse_from([
+            "rustomize-epub",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "--output-dir",
+            "/tmp",
+        ]);
         assert_eq!(cli.output_dir, Some(PathBuf::from("/tmp")));
     }
 
@@ -395,10 +456,14 @@ mod tests {
     fn test_cli_parser_with_title_author() {
         let cli = Cli::parse_from([
             "rustomize-epub",
-            "-i", "input.epub",
-            "-o", "output.epub",
-            "--title", "New Title",
-            "--author", "New Author",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "--title",
+            "New Title",
+            "--author",
+            "New Author",
         ]);
         assert_eq!(cli.title, Some("New Title".to_string()));
         assert_eq!(cli.author, Some("New Author".to_string()));
@@ -408,13 +473,20 @@ mod tests {
     fn test_cli_parser_with_metadata_edits() {
         let cli = Cli::parse_from([
             "rustomize-epub",
-            "-i", "input.epub",
-            "-o", "output.epub",
-            "--title", "New Title",
-            "--author", "New Author",
-            "--series", "My Series",
-            "--series-index", "3",
-            "--language", "en",
+            "-i",
+            "input.epub",
+            "-o",
+            "output.epub",
+            "--title",
+            "New Title",
+            "--author",
+            "New Author",
+            "--series",
+            "My Series",
+            "--series-index",
+            "3",
+            "--language",
+            "en",
         ]);
         assert_eq!(cli.title, Some("New Title".to_string()));
         assert_eq!(cli.author, Some("New Author".to_string()));

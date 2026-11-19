@@ -5,24 +5,24 @@ use crate::html::selector_extractor::UsedSelectors;
 /// Check if a CSS selector matches any used selector
 pub fn selector_matches(selector: &str, used: &UsedSelectors) -> bool {
     let selector = selector.trim();
-    
+
     // ID selector
     if let Some(ide_text) = selector.strip_prefix('#') {
         let id_name = ide_text.trim();
         return used.ids.contains(id_name);
     }
-    
+
     // Class selector
     if let Some(class_text) = selector.strip_prefix('.') {
         let class_name = class_text.trim();
         return used.classes.contains(class_name);
     }
-    
+
     // Element selector (simple case)
     if selector.chars().all(|c| c.is_alphanumeric() || c == '-') {
         return used.elements.contains(selector);
     }
-    
+
     // Complex selectors - extract the first component
     for component in selector.split([' ', '>', '+', '~']) {
         let component = component.trim();
@@ -36,18 +36,20 @@ pub fn selector_matches(selector: &str, used: &UsedSelectors) -> bool {
             if used.classes.contains(class_name) {
                 return true;
             }
-        } else if component.chars().all(|c| c.is_alphanumeric() || c == '-') && used.elements.contains(component) {
-                return true;
+        } else if component.chars().all(|c| c.is_alphanumeric() || c == '-')
+            && used.elements.contains(component)
+        {
+            return true;
         }
     }
-    
+
     false
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn test_selector_matches_class() {
@@ -57,7 +59,7 @@ mod tests {
             ids: HashSet::new(),
             elements: HashSet::new(),
         };
-        
+
         assert!(selector_matches(selector, &used));
     }
 
@@ -69,7 +71,7 @@ mod tests {
             ids: vec!["header".to_string()].into_iter().collect(),
             elements: HashSet::new(),
         };
-        
+
         assert!(selector_matches(selector, &used));
     }
 
@@ -81,7 +83,7 @@ mod tests {
             ids: HashSet::new(),
             elements: vec!["div".to_string()].into_iter().collect(),
         };
-        
+
         assert!(selector_matches(selector, &used));
     }
 
@@ -93,7 +95,7 @@ mod tests {
             ids: HashSet::new(),
             elements: HashSet::new(),
         };
-        
+
         assert!(!selector_matches(selector, &used));
     }
 }

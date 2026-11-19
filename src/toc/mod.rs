@@ -3,4 +3,4 @@
 pub mod generator;
 pub mod validator;
 
-pub use validator::{validate_ncx, validate_nav, ValidationResult, ValidationError, ErrorLevel};
+pub use validator::{validate_nav, validate_ncx, ErrorLevel, ValidationError, ValidationResult};

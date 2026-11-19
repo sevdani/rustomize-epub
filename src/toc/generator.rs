@@ -2,11 +2,11 @@
 /// Generate NCX content (memory-based)
 pub fn generate_ncx_content_memory(
     opf_content: &str,
-    xhtml_files: &[String]
+    xhtml_files: &[String],
 ) -> Result<String, crate::ProcessingError> {
     let title = extract_dc_title_memory(opf_content).unwrap_or("Untitled".to_string());
     let author = extract_dc_creator_memory(opf_content).unwrap_or("Unknown".to_string());
-    
+
     // Generate NCX XML
     let mut ncx = String::new();
     ncx.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -14,7 +14,9 @@ pub fn generate_ncx_content_memory(
     ncx.push_str("  \"http://www.daisy.org/z3986/2005/ncx-2005-1.dtd\">\n\n");
     ncx.push_str("<ncx xmlns=\"http://www.daisy.org/z3986/2005/ncx/\" version=\"2005-1\">\n");
     ncx.push_str("  <head>\n");
-    ncx.push_str("    <meta name=\"dtb:uid\" content=\"urn:uuid:12345678-1234-1234-1234-123456789012\"/>\n");
+    ncx.push_str(
+        "    <meta name=\"dtb:uid\" content=\"urn:uuid:12345678-1234-1234-1234-123456789012\"/>\n",
+    );
     ncx.push_str("    <meta name=\"dtb:depth\" content=\"1\"/>\n");
     ncx.push_str("    <meta name=\"dtb:totalPageCount\" content=\"0\"/>\n");
     ncx.push_str("    <meta name=\"dtb:maxPageNumber\" content=\"0\"/>\n");
@@ -30,7 +32,7 @@ pub fn generate_ncx_content_memory(
     ncx.push_str("</text>\n");
     ncx.push_str("  </docAuthor>\n");
     ncx.push_str("  <navMap>\n");
-    
+
     // Add navigation points for each chapter
     for (i, xhtml_file) in xhtml_files.iter().enumerate() {
         ncx.push_str(&format!(
@@ -38,24 +40,30 @@ pub fn generate_ncx_content_memory(
             i + 1,
             i + 1
         ));
-        ncx.push_str(&format!("      <navLabel>\n        <text>Chapter {}</text>\n      </navLabel>\n", i + 1));
-        ncx.push_str(&format!("      <content src=\"{}\"/>\n", escape_xml(xhtml_file)));
+        ncx.push_str(&format!(
+            "      <navLabel>\n        <text>Chapter {}</text>\n      </navLabel>\n",
+            i + 1
+        ));
+        ncx.push_str(&format!(
+            "      <content src=\"{}\"/>\n",
+            escape_xml(xhtml_file)
+        ));
         ncx.push_str("    </navPoint>\n");
     }
-    
+
     ncx.push_str("  </navMap>\n");
     ncx.push_str("</ncx>\n");
-    
+
     Ok(ncx)
 }
 
 /// Generate NAV content (memory-based)
 pub fn generate_nav_content_memory(
     opf_content: &str,
-    xhtml_files: &[String]
+    xhtml_files: &[String],
 ) -> Result<String, crate::ProcessingError> {
     let title = extract_dc_title_memory(opf_content).unwrap_or("Table of Contents".to_string());
-    
+
     // Generate NAV HTML
     let mut nav = String::new();
     nav.push_str("<!DOCTYPE html>\n");
@@ -72,17 +80,21 @@ pub fn generate_nav_content_memory(
     nav.push_str(&escape_xml(&title));
     nav.push_str("</h1>\n");
     nav.push_str("<ol>\n");
-    
+
     // Add navigation items for each chapter
     for (i, xhtml_file) in xhtml_files.iter().enumerate() {
-        nav.push_str(&format!("<li><a href=\"{}\">Chapter {}</a></li>\n", escape_xml(xhtml_file), i + 1));
+        nav.push_str(&format!(
+            "<li><a href=\"{}\">Chapter {}</a></li>\n",
+            escape_xml(xhtml_file),
+            i + 1
+        ));
     }
-    
+
     nav.push_str("</ol>\n");
     nav.push_str("</nav>\n");
     nav.push_str("</body>\n");
     nav.push_str("</html>\n");
-    
+
     Ok(nav)
 }
 
@@ -114,15 +126,18 @@ fn extract_dc_creator_memory(opf_content: &str) -> Option<String> {
 /// Add NCX reference to OPF content (memory-based)
 pub fn add_ncx_to_opf_content(opf_content: &str, ncx_filename: &str) -> String {
     let mut new_content = opf_content.to_string();
-    
+
     // Add NCX item to manifest if not already present
     if !new_content.contains("toc.ncx") {
         if let Some(manifest_end) = opf_content.find("</manifest>") {
-            let item = format!("\n    <item id=\"ncx\" href=\"{}\" media-type=\"application/x-dtbncx+xml\"/>", ncx_filename);
+            let item = format!(
+                "\n    <item id=\"ncx\" href=\"{}\" media-type=\"application/x-dtbncx+xml\"/>",
+                ncx_filename
+            );
             new_content.insert_str(manifest_end, &item);
         }
     }
-    
+
     // Add NCX reference to spine if not already present
     if !new_content.contains("ncx") || !new_content.contains("linear=\"no\"") {
         if let Some(spine_end) = opf_content.find("</spine>") {
@@ -130,14 +145,14 @@ pub fn add_ncx_to_opf_content(opf_content: &str, ncx_filename: &str) -> String {
             new_content.insert_str(spine_end, &toc_reference);
         }
     }
-    
+
     new_content
 }
 
 /// Add NAV reference to OPF content (memory-based)
 pub fn add_nav_to_opf_content(opf_content: &str, nav_filename: &str) -> String {
     let mut new_content = opf_content.to_string();
-    
+
     // Add NAV item to manifest if not already present
     if !new_content.contains("nav.xhtml") {
         if let Some(manifest_end) = opf_content.find("</manifest>") {
@@ -145,7 +160,7 @@ pub fn add_nav_to_opf_content(opf_content: &str, nav_filename: &str) -> String {
             new_content.insert_str(manifest_end, &item);
         }
     }
-    
+
     new_content
 }
 
@@ -194,7 +209,10 @@ mod tests {
     fn test_escape_xml_all_chars() {
         let input = "A & B < C > D \"E\" 'F'";
         let output = escape_xml(input);
-        assert_eq!(output, "A &amp; B &lt; C &gt; D &quot;E&quot; &apos;F&apos;");
+        assert_eq!(
+            output,
+            "A &amp; B &lt; C &gt; D &quot;E&quot; &apos;F&apos;"
+        );
     }
 
     #[test]
@@ -227,7 +245,8 @@ mod tests {
 
     #[test]
     fn test_extract_dc_creator_memory_with_attributes() {
-        let opf_content = "<dc:creator role=\"aut\" file_as=\"Smith, John\">John Smith</dc:creator>";
+        let opf_content =
+            "<dc:creator role=\"aut\" file_as=\"Smith, John\">John Smith</dc:creator>";
         let creator = extract_dc_creator_memory(opf_content);
         assert_eq!(creator, Some("John Smith".to_string()));
     }
@@ -236,9 +255,9 @@ mod tests {
     fn test_generate_ncx_content_memory_basic() {
         let opf_content = "<dc:title>Test Book</dc:title><dc:creator>Author</dc:creator>";
         let xhtml_files = vec!["chapter1.xhtml".to_string(), "chapter2.xhtml".to_string()];
-        
+
         let ncx = generate_ncx_content_memory(opf_content, &xhtml_files).unwrap();
-        
+
         assert!(ncx.contains("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
         assert!(ncx.contains("<docTitle>"));
         assert!(ncx.contains("Test Book"));
@@ -257,9 +276,9 @@ mod tests {
     fn test_generate_ncx_content_memory_with_special_chars() {
         let opf_content = "<dc:title>Test &amp; Book</dc:title><dc:creator>Author</dc:creator>";
         let xhtml_files = vec!["chapter 1.xhtml".to_string()];
-        
+
         let ncx = generate_ncx_content_memory(opf_content, &xhtml_files).unwrap();
-        
+
         // The title should be escaped, and the filename with space should be handled
         assert!(ncx.contains("Test"));
         assert!(ncx.contains("Book"));
@@ -270,9 +289,9 @@ mod tests {
     fn test_generate_nav_content_memory_basic() {
         let opf_content = "<dc:title>Test Book</dc:title>";
         let xhtml_files = vec!["chapter1.xhtml".to_string()];
-        
+
         let nav = generate_nav_content_memory(opf_content, &xhtml_files).unwrap();
-        
+
         assert!(nav.contains("<!DOCTYPE html>"));
         assert!(nav.contains("<h1>"));
         assert!(nav.contains("Test Book"));
@@ -288,9 +307,9 @@ mod tests {
             "chapter2.xhtml".to_string(),
             "chapter3.xhtml".to_string(),
         ];
-        
+
         let nav = generate_nav_content_memory(opf_content, &xhtml_files).unwrap();
-        
+
         assert!(nav.contains("<a href=\"chapter1.xhtml\">Chapter 1</a>"));
         assert!(nav.contains("<a href=\"chapter2.xhtml\">Chapter 2</a>"));
         assert!(nav.contains("<a href=\"chapter3.xhtml\">Chapter 3</a>"));
@@ -300,9 +319,9 @@ mod tests {
     fn test_add_ncx_to_opf_content_new() {
         let opf_content = "<manifest>\n</manifest>\n<spine>\n</spine>";
         let ncx_filename = "toc.ncx";
-        
+
         let new_content = add_ncx_to_opf_content(opf_content, ncx_filename);
-        
+
         assert!(new_content.contains("toc.ncx"));
         assert!(new_content.contains("application/x-dtbncx+xml"));
         assert!(new_content.contains("ncx"));
@@ -310,11 +329,12 @@ mod tests {
 
     #[test]
     fn test_add_ncx_to_opf_content_already_present() {
-        let opf_content = "<manifest>\n<item id=\"ncx\" href=\"toc.ncx\"/>\n</manifest>\n<spine>\n</spine>";
+        let opf_content =
+            "<manifest>\n<item id=\"ncx\" href=\"toc.ncx\"/>\n</manifest>\n<spine>\n</spine>";
         let ncx_filename = "toc.ncx";
-        
+
         let new_content = add_ncx_to_opf_content(opf_content, ncx_filename);
-        
+
         // Should not duplicate the NCX entry
         let count = new_content.matches("toc.ncx").count();
         assert!(count >= 1);
@@ -324,9 +344,9 @@ mod tests {
     fn test_add_nav_to_opf_content_new() {
         let opf_content = "<manifest>\n</manifest>";
         let nav_filename = "nav.xhtml";
-        
+
         let new_content = add_nav_to_opf_content(opf_content, nav_filename);
-        
+
         assert!(new_content.contains("nav.xhtml"));
         assert!(new_content.contains("properties=\"nav\""));
     }
@@ -335,9 +355,9 @@ mod tests {
     fn test_generate_ncx_content_memory_no_creator() {
         let opf_content = "<dc:title>Test Book</dc:title>";
         let xhtml_files = vec!["chapter1.xhtml".to_string()];
-        
+
         let ncx = generate_ncx_content_memory(opf_content, &xhtml_files).unwrap();
-        
+
         assert!(ncx.contains("Test Book"));
         assert!(ncx.contains("Unknown"));
     }

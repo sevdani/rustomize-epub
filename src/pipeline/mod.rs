@@ -2,4 +2,4 @@
 
 pub mod processor;
 
-pub use processor::{process_epub_path, process_epub_memory};
+pub use processor::{process_epub_memory, process_epub_path};

@@ -1,13 +1,13 @@
 //! Image processor for EPUB optimization
 
+use crate::error::{ProcessingError, ProcessingErrorType, Result};
+use crate::types::ImageOptions;
+use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
 use std::collections::HashMap;
 use std::path::Path;
-use image::{GenericImageView, DynamicImage, ImageBuffer, Luma};
-use crate::types::ImageOptions;
-use crate::error::{ProcessingError, ProcessingErrorType, Result};
 
 // Font imports
-use rusttype::{Font, Scale, point};
+use rusttype::{point, Font, Scale};
 
 use crate::image::dither::dither_to_gray_levels;
 
@@ -31,10 +31,10 @@ pub struct ImageProcessingReport {
 pub fn process_image(
     image_bytes: &[u8],
     filename: &str,
-    options: &ImageOptions
+    options: &ImageOptions,
 ) -> Result<ImageResult> {
     let original_size = image_bytes.len();
-    
+
     // Check if we should process this file
     if !should_process(filename) {
         return Ok(ImageResult {
@@ -46,103 +46,104 @@ pub fn process_image(
             details: "Skipped (not a processable image)".to_string(),
         });
     }
-    
+
     // Determine the format
     let ext = Path::new(filename)
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
-    
+
     // Parse the image
     let mut img = image::load_from_memory(image_bytes).map_err(|e| {
         ProcessingError::new(
             filename,
             ProcessingErrorType::ImageProcessing(e.to_string()),
-            format!("Failed to load image: {}", e)
+            format!("Failed to load image: {}", e),
         )
     })?;
-    
+
     let mut details_parts = Vec::new();
     let mut was_converted = false;
-    
+
     // Check if conversion to JPEG is needed
     let needs_jpeg_conversion = ext != "jpeg" && ext != "jpg";
     if needs_jpeg_conversion {
         details_parts.push(format!("{}→JPEG", ext.to_uppercase()));
         was_converted = true;
     }
-    
+
     // Get original dimensions
     let (original_width, original_height) = img.dimensions();
-    
+
     // Light novel mode: detect and rotate landscape images
     if options.light_novel_mode && is_landscape_image(original_width, original_height) {
         img = DynamicImage::ImageRgba8(image::imageops::rotate90(&img.to_rgba8()));
         details_parts.push("rotate90".to_string());
     }
-    
+
     // Calculate new dimensions (maintain aspect ratio)
     let (new_width, new_height) = calculate_resized_dimensions(
         original_width,
         original_height,
         options.max_width,
-        options.max_height
+        options.max_height,
     );
-    
+
     // Resize if needed
     if new_width < original_width || new_height < original_height {
         img = resize_image(&img, new_width, new_height);
         details_parts.push(format!("{}x{}", new_width, new_height));
     }
-    
+
     // Convert to grayscale if enabled
     if options.grayscale {
         img = img.grayscale();
         details_parts.push("grayscale".to_string());
     }
-    
+
     // Apply contrast boost if enabled
     if options.contrast_boost {
         img = apply_contrast(&img, options.contrast_factor);
         details_parts.push(format!("contrast {:.1}x", options.contrast_factor));
     }
-    
+
     // E-ink quantization (4-level grayscale)
     if options.eink_quantize && options.grayscale {
         img = quantize_to_gray_levels(&img, &options.gray_levels);
         details_parts.push("4-level grayscale".to_string());
     }
-    
+
     // Convert to JPEG
     let mut output_bytes = Vec::new();
     let new_filename = if needs_jpeg_conversion {
-        let stem = Path::new(filename).file_stem()
+        let stem = Path::new(filename)
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("image");
         format!("{}.jpg", stem)
     } else {
         filename.to_string()
     };
-    
+
     // Write to buffer using a temporary approach
     use std::io::Cursor;
     let mut cursor = Cursor::new(&mut output_bytes);
     let img = img.to_rgb8();
-    
+
     use image::codecs::jpeg::JpegEncoder;
-    
+
     let mut encoder = JpegEncoder::new_with_quality(&mut cursor, options.quality);
     encoder.encode_image(&img).map_err(|e| {
         ProcessingError::new(
             &new_filename,
             ProcessingErrorType::ImageProcessing(e.to_string()),
-            format!("Failed to encode image: {}", e)
+            format!("Failed to encode image: {}", e),
         )
     })?;
-    
+
     let new_size = output_bytes.len();
-    
+
     Ok(ImageResult {
         output_bytes,
         new_filename,
@@ -164,11 +165,11 @@ fn calculate_resized_dimensions(
     orig_width: u32,
     orig_height: u32,
     max_width: u32,
-    max_height: u32
+    max_height: u32,
 ) -> (u32, u32) {
     let aspect_ratio = orig_width as f64 / orig_height as f64;
     let max_aspect_ratio = max_width as f64 / max_height as f64;
-    
+
     if aspect_ratio > max_aspect_ratio {
         // Width is the limiting factor
         (max_width, (max_width as f64 / aspect_ratio) as u32)
@@ -180,13 +181,8 @@ fn calculate_resized_dimensions(
 
 /// Resize an image using Lanczos3 interpolation for best quality
 fn resize_image(img: &DynamicImage, new_width: u32, new_height: u32) -> DynamicImage {
-    let resized = image::imageops::resize(
-        img,
-        new_width,
-        new_height,
-        image::imageops::Lanczos3
-    );
-    
+    let resized = image::imageops::resize(img, new_width, new_height, image::imageops::Lanczos3);
+
     // Resize returns a specific image buffer type, wrap in DynamicImage
     DynamicImage::ImageRgba8(resized)
 }
@@ -194,16 +190,18 @@ fn resize_image(img: &DynamicImage, new_width: u32, new_height: u32) -> DynamicI
 /// Apply contrast adjustment
 fn apply_contrast(img: &DynamicImage, factor: f32) -> DynamicImage {
     let img = img.to_rgba8();
-    
-    image::DynamicImage::ImageRgba8(
-        image::ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
+
+    image::DynamicImage::ImageRgba8(image::ImageBuffer::from_fn(
+        img.width(),
+        img.height(),
+        |x, y| {
             let pixel = img.get_pixel(x, y);
             let r = ((pixel[0] as f32 - 128.0) * factor + 128.0).clamp(0.0, 255.0) as u8;
             let g = ((pixel[1] as f32 - 128.0) * factor + 128.0).clamp(0.0, 255.0) as u8;
             let b = ((pixel[2] as f32 - 128.0) * factor + 128.0).clamp(0.0, 255.0) as u8;
             image::Rgba([r, g, b, pixel[3]])
-        })
-    )
+        },
+    ))
 }
 
 /// Quantize image to specific gray levels with Floyd-Steinberg dithering (e-ink optimization)
@@ -228,26 +226,26 @@ pub fn generate_cover_image(
     author: &str,
     width: u32,
     height: u32,
-    gray_levels: Option<Vec<u8>>
+    gray_levels: Option<Vec<u8>>,
 ) -> Result<Vec<u8>> {
     // 1. Load fonts from embedded bytes
     let title_font = load_title_font()?;
     let author_font = load_author_font()?;
-    
+
     // 2. Create blank image (dark background for e-ink)
     let mut img = ImageBuffer::new(width, height);
     for pixel in img.pixels_mut() {
         *pixel = Luma([20u8]); // Dark gray background
     }
-    
+
     // 3. Render title text (centered at top)
     let title_y = height / 4; // Top quarter
     render_text_rusttype(&mut img, &title_font, title, 16, title_y, 255, 48)?;
-    
+
     // 4. Render author text (centered below title)
     let author_y = title_y + 80; // Below title with spacing
     render_text_rusttype(&mut img, &author_font, author, 16, author_y, 200, 24)?;
-    
+
     // 5. Apply e-ink quantization if enabled
     let gray_levels = gray_levels.unwrap_or(vec![0, 85, 170, 255]);
     let img_dynamic = DynamicImage::ImageLuma8(img);
@@ -256,15 +254,15 @@ pub fn generate_cover_image(
         DynamicImage::ImageLuma8(luma) => luma,
         _ => panic!("Expected Luma8 image"),
     };
-    
+
     // 6. Convert to RGB for JPEG encoding by wrapping in DynamicImage
     let img_dynamic = DynamicImage::ImageLuma8(img);
     let rgb_img = img_dynamic.to_rgb8();
-    
+
     // 7. Encode as JPEG
     let mut output = Vec::new();
     use image::codecs::jpeg::JpegEncoder;
-    
+
     let mut encoder = JpegEncoder::new_with_quality(&mut output, 85);
     encoder.encode_image(&rgb_img).map_err(|e| {
         ProcessingError::new(
@@ -273,7 +271,7 @@ pub fn generate_cover_image(
             "Failed to encode cover image".to_string(),
         )
     })?;
-    
+
     Ok(output)
 }
 
@@ -309,24 +307,24 @@ fn render_text_rusttype(
     x: u32,
     y: u32,
     color: u8,
-    font_size: u32
+    font_size: u32,
 ) -> Result<()> {
     let scale = Scale::uniform(font_size as f32);
-    
+
     let v_metrics = font.v_metrics(scale);
     let start_point = point(x as f32, y as f32 + v_metrics.ascent);
-    
+
     // Layout all glyphs for the text
     for g in font.layout(text, scale, start_point) {
         if let Some(bb) = g.pixel_bounding_box() {
             g.draw(|x, y, v| {
                 let px = x as i32 + bb.min.x;
                 let py = y as i32 + bb.min.y;
-                
+
                 if px >= 0 && py >= 0 {
                     let px_u32 = px as u32;
                     let py_u32 = py as u32;
-                    
+
                     if px_u32 < img.width() && py_u32 < img.height() {
                         let pixel = img.get_pixel_mut(px_u32, py_u32);
                         // Blend with background
@@ -337,7 +335,7 @@ fn render_text_rusttype(
             })
         }
     }
-    
+
     Ok(())
 }
 
@@ -348,7 +346,7 @@ pub fn should_process(filename: &str) -> bool {
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
-    
+
     SUPPORTED_EXTENSIONS.contains(&ext.as_str())
 }
 
@@ -361,29 +359,31 @@ pub fn is_progressive_jpeg(_image_bytes: &[u8]) -> bool {
 /// Process all images in an EPUB with optional parallel processing (memory-based)
 pub fn process_images_from_bytes(
     image_files: HashMap<String, Vec<u8>>,
-    options: &crate::ProcessingOptions
+    options: &crate::ProcessingOptions,
 ) -> Result<(HashMap<String, Vec<u8>>, ImageProcessingReport)> {
     #[cfg(feature = "parallel")]
     let results: Vec<_> = {
         use rayon::prelude::*;
-        
-        image_files.par_iter().map(|(path, bytes)| {
-            process_single_image_from_bytes(bytes, path, options)
-        }).collect()
+
+        image_files
+            .par_iter()
+            .map(|(path, bytes)| process_single_image_from_bytes(bytes, path, options))
+            .collect()
     };
-    
+
     #[cfg(not(feature = "parallel"))]
     let results: Vec<_> = {
-        image_files.iter().map(|(path, bytes)| {
-            process_single_image_from_bytes(bytes, path, options)
-        }).collect()
+        image_files
+            .iter()
+            .map(|(path, bytes)| process_single_image_from_bytes(bytes, path, options))
+            .collect()
     };
-    
+
     // Process results and build report
     let mut processed_images = HashMap::new();
     let mut report = ImageProcessingReport {
         images_total: image_files.len(),
-        .. Default::default()
+        ..Default::default()
     };
 
     for ((image_path, original_bytes), result) in image_files.iter().zip(results) {
@@ -418,7 +418,7 @@ pub fn process_images_from_bytes(
             }
         }
     }
-    
+
     Ok((processed_images, report))
 }
 
@@ -426,18 +426,18 @@ pub fn process_images_from_bytes(
 fn process_single_image_from_bytes(
     image_bytes: &[u8],
     image_path: &str,
-    options: &crate::ProcessingOptions
+    options: &crate::ProcessingOptions,
 ) -> Result<Option<(String, bool, Vec<u8>)>> {
     let filename = Path::new(image_path)
         .file_name()
         .and_then(|f| f.to_str())
         .unwrap_or(image_path);
-    
+
     let result = process_image(image_bytes, filename, &options.image_options)?;
-    
+
     // Only update if the image was actually modified
     let was_modified = result.was_converted || result.output_bytes != image_bytes;
-    
+
     Ok(if was_modified {
         Some((result.new_filename, true, result.output_bytes))
     } else {
@@ -503,13 +503,13 @@ mod tests {
 
     #[test]
     fn test_quantize_to_gray_levels() {
-        let img = image::DynamicImage::ImageLuma8(
-            ImageBuffer::from_fn(4, 4, |_, _| image::Luma([100u8]))
-        );
-        
+        let img = image::DynamicImage::ImageLuma8(ImageBuffer::from_fn(4, 4, |_, _| {
+            image::Luma([100u8])
+        }));
+
         let gray_levels = vec![0, 85, 170, 255];
         let quantized = quantize_to_gray_levels(&img, &gray_levels);
-        
+
         // 100 is closest to 85
         let luma = quantized.to_luma8();
         let pixel = luma.get_pixel(0, 0);
@@ -518,10 +518,10 @@ mod tests {
 
     #[test]
     fn test_apply_contrast() {
-        let img = image::DynamicImage::ImageRgba8(
-            ImageBuffer::from_fn(4, 4, |_, _| Rgba([128u8, 128u8, 128u8, 255u8]))
-        );
-        
+        let img = image::DynamicImage::ImageRgba8(ImageBuffer::from_fn(4, 4, |_, _| {
+            Rgba([128u8, 128u8, 128u8, 255u8])
+        }));
+
         let contrasted = apply_contrast(&img, 2.0);
         // At 128, contrast should keep it at 128 (center point)
         let rgba = contrasted.to_rgba8();
@@ -535,14 +535,18 @@ mod tests {
         assert!(result.is_ok());
         let bytes = result.unwrap();
         // Real cover image should be larger than placeholder (100 bytes)
-        assert!(bytes.len() > 1000, "Cover image should be generated, got {} bytes", bytes.len());
+        assert!(
+            bytes.len() > 1000,
+            "Cover image should be generated, got {} bytes",
+            bytes.len()
+        );
     }
 
     #[test]
     fn test_process_image_skipped_non_image() {
         let options = ImageOptions::default();
         let result = process_image(b"not an image", "document.pdf", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(!result.was_converted);
@@ -556,16 +560,17 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         // Encode JPEG using JpegEncoder directly
         use image::codecs::jpeg::JpegEncoder;
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions::default();
         let result = process_image(&buffer, "test.jpg", &options);
-        
+
         assert!(result.is_ok(), "Failed to process JPEG: {:?}", result);
         let _result = result.unwrap();
         // JPEG to JPEG with same format, no conversion needed unless resized
@@ -579,20 +584,21 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         // Encode JPEG using JpegEncoder directly
         use image::codecs::jpeg::JpegEncoder;
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions {
             light_novel_mode: true,
             ..ImageOptions::default()
         };
 
         let result = process_image(&buffer, "landscape.jpg", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         // JPEG doesn't need conversion to JPEG, but light_novel_mode adds rotate90
@@ -606,20 +612,21 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 128u8, 64u8, 255u8]);
         }
-        
+
         // Encode JPEG using JpegEncoder directly
         use image::codecs::jpeg::JpegEncoder;
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions {
             grayscale: true,
             ..ImageOptions::default()
         };
 
         let result = process_image(&buffer, "test.jpg", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(result.details.contains("grayscale"));
@@ -632,17 +639,18 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         // Encode JPEG using JpegEncoder directly
         use image::codecs::jpeg::JpegEncoder;
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions::for_device(&crate::DeviceProfile::x4());
-        
+
         let result = process_image(&buffer, "test.jpg", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(result.details.contains("480x"));
@@ -668,7 +676,7 @@ mod tests {
     fn test_process_image_invalid_data() {
         let options = ImageOptions::default();
         let result = process_image(b"invalid image data", "test.jpg", &options);
-        
+
         assert!(result.is_err());
     }
 
@@ -677,15 +685,15 @@ mod tests {
         // Test PNG
         let png_ext = "image.png";
         assert!(should_process(png_ext));
-        
+
         // Test GIF
         let gif_ext = "image.gif";
         assert!(should_process(gif_ext));
-        
+
         // Test WebP
         let webp_ext = "image.webp";
         assert!(should_process(webp_ext));
-        
+
         // Test BMP
         let bmp_ext = "image.bmp";
         assert!(should_process(bmp_ext));
@@ -695,10 +703,10 @@ mod tests {
     fn test_process_images_from_bytes_empty() {
         let image_files = HashMap::new();
         let options = crate::ProcessingOptions::default();
-        
+
         let result = process_images_from_bytes(image_files, &options);
         assert!(result.is_ok());
-        
+
         let (_, report) = result.unwrap();
         assert_eq!(report.images_total, 0);
     }
@@ -707,10 +715,10 @@ mod tests {
     fn test_process_images_from_bytes_with_files() {
         let mut image_files = HashMap::new();
         image_files.insert("test.jpg".to_string(), vec![0u8; 100]);
-        
+
         let mut options = crate::ProcessingOptions::default();
         options.image_options.grayscale = false; // Skip processing
-        
+
         let result = process_images_from_bytes(image_files, &options);
         // Should succeed or give a meaningful error for invalid image
         assert!(result.is_ok() || result.is_err());
@@ -721,7 +729,7 @@ mod tests {
         let image_bytes = b"not an image";
         let image_path = "document.pdf";
         let options = crate::ProcessingOptions::default();
-        
+
         let result = process_single_image_from_bytes(image_bytes, image_path, &options);
         // Should skip non-processable images
         assert!(result.is_ok());
@@ -732,9 +740,9 @@ mod tests {
         let image_bytes = b"invalid image data";
         let image_path = "test.jpg";
         let options = crate::ProcessingOptions::default();
-        
+
         let result = process_single_image_from_bytes(image_bytes, image_path, &options);
-        
+
         assert!(result.is_err());
     }
 
@@ -746,16 +754,17 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let image_path = "test.jpg";
         let options = crate::ProcessingOptions::default();
-        
+
         let result = process_single_image_from_bytes(&buffer, image_path, &options);
-        
+
         assert!(result.is_ok());
         let option_result = result.unwrap();
         assert!(option_result.is_some());
@@ -766,7 +775,7 @@ mod tests {
         let mut report = ImageProcessingReport::default();
         report.image_formats.insert("jpg".to_string(), 5);
         report.image_formats.insert("png".to_string(), 3);
-        
+
         assert_eq!(report.image_formats.get("jpg"), Some(&5));
         assert_eq!(report.image_formats.get("png"), Some(&3));
     }
@@ -789,13 +798,13 @@ mod tests {
     #[test]
     fn test_quantize_to_gray_levels_edge_cases() {
         // Test with single gray level
-        let img = image::DynamicImage::ImageLuma8(
-            ImageBuffer::from_fn(4, 4, |_, _| image::Luma([128u8]))
-        );
-        
+        let img = image::DynamicImage::ImageLuma8(ImageBuffer::from_fn(4, 4, |_, _| {
+            image::Luma([128u8])
+        }));
+
         let gray_levels = vec![128];
         let quantized = quantize_to_gray_levels(&img, &gray_levels);
-        
+
         let luma = quantized.to_luma8();
         let pixel = luma.get_pixel(0, 0);
         assert_eq!(pixel[0], 128);
@@ -803,10 +812,10 @@ mod tests {
 
     #[test]
     fn test_apply_contrast_no_change() {
-        let img = image::DynamicImage::ImageRgba8(
-            ImageBuffer::from_fn(4, 4, |_, _| Rgba([128u8, 128u8, 128u8, 255u8]))
-        );
-        
+        let img = image::DynamicImage::ImageRgba8(ImageBuffer::from_fn(4, 4, |_, _| {
+            Rgba([128u8, 128u8, 128u8, 255u8])
+        }));
+
         // At 1.0 factor, image should not change
         let contrasted = apply_contrast(&img, 1.0);
         let rgba = contrasted.to_rgba8();
@@ -838,14 +847,15 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions::default();
         let result = process_image(&buffer, "test.jpg", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         // JPEG to JPEG without conversion
@@ -860,15 +870,16 @@ mod tests {
         for pixel in img.pixels_mut() {
             *pixel = Rgba([255u8, 0u8, 0u8, 255u8]);
         }
-        
+
         let mut buffer = Vec::new();
         JpegEncoder::new_with_quality(&mut buffer, 80)
-            .encode_image(&img).expect("Failed to encode JPEG");
-        
+            .encode_image(&img)
+            .expect("Failed to encode JPEG");
+
         let options = ImageOptions::for_device(&crate::DeviceProfile::x4());
-        
+
         let result = process_image(&buffer, "test.jpg", &options);
-        
+
         assert!(result.is_ok());
         let result = result.unwrap();
         // After processing, the file should be valid
@@ -905,9 +916,9 @@ mod tests {
         assert!(options.light_novel_mode);
         assert!(options.light_novel_rotate_left);
     }
-    
+
     // ==================== Font Loading Tests ====================
-    
+
     #[test]
     fn test_load_title_font_success() {
         let result = load_title_font();
@@ -920,7 +931,7 @@ mod tests {
         assert!(v_metrics.descent < 0.0); // Descent is negative in rusttype
         assert!(v_metrics.line_gap >= 0.0);
     }
-    
+
     #[test]
     fn test_load_author_font_success() {
         let result = load_author_font();
@@ -933,21 +944,25 @@ mod tests {
         assert!(v_metrics.descent < 0.0);
         assert!(v_metrics.line_gap >= 0.0);
     }
-    
+
     // ==================== Cover Generation Tests ====================
-    
+
     #[test]
     fn test_generate_cover_image_creates_valid_jpeg() {
         let result = generate_cover_image("Test Title", "Test Author", 480, 800, None);
         assert!(result.is_ok());
         let bytes = result.unwrap();
         // Real JPEG should be at least 1KB
-        assert!(bytes.len() > 1000, "Cover should be real JPEG, got {} bytes", bytes.len());
+        assert!(
+            bytes.len() > 1000,
+            "Cover should be real JPEG, got {} bytes",
+            bytes.len()
+        );
         // Should start with JPEG magic bytes
         assert_eq!(bytes[0], 0xFF);
         assert_eq!(bytes[1], 0xD8); // JPEG SOI marker
     }
-    
+
     #[test]
     fn test_generate_cover_image_with_custom_dimensions() {
         let test_cases = vec![
@@ -956,24 +971,24 @@ mod tests {
             (528, 792),  // X3 default
             (800, 1200), // Large
         ];
-        
+
         for (width, height) in test_cases {
             let result = generate_cover_image("Title", "Author", width, height, None);
             assert!(result.is_ok(), "Failed for {}x{}", width, height);
-            
+
             let bytes = result.unwrap();
             // Decode to verify dimensions
-            use std::io::Cursor;
             use image::codecs::jpeg::JpegDecoder;
             use image::ImageDecoder;
-            
+            use std::io::Cursor;
+
             let decoder = JpegDecoder::new(Cursor::new(bytes)).expect("Failed to create decoder");
             let dimensions = decoder.dimensions();
             assert_eq!(dimensions.0, width);
             assert_eq!(dimensions.1, height);
         }
     }
-    
+
     #[test]
     fn test_generate_cover_image_different_titles() {
         let titles = vec![
@@ -982,13 +997,13 @@ mod tests {
             "Title with SpecialChars!@#",
             "Unicode: 你好 こんにちは",
         ];
-        
+
         for title in titles {
             let result = generate_cover_image(title, "Author", 480, 800, None);
             assert!(result.is_ok(), "Failed for title: {}", title);
         }
     }
-    
+
     #[test]
     fn test_generate_cover_image_different_authors() {
         let authors = vec![
@@ -996,13 +1011,13 @@ mod tests {
             "Very Long Author Name That Should Fit Properly",
             "Author Name With Spaces and Names",
         ];
-        
+
         for author in authors {
             let result = generate_cover_image("Title", author, 480, 800, None);
             assert!(result.is_ok(), "Failed for author: {}", author);
         }
     }
-    
+
     #[test]
     fn test_generate_cover_image_with_gray_levels_single() {
         let gray_levels = Some(vec![128]);
@@ -1011,7 +1026,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     #[test]
     fn test_generate_cover_image_with_gray_levels_custom() {
         let gray_levels = Some(vec![0, 100, 200, 255]);
@@ -1020,7 +1035,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     #[test]
     fn test_generate_cover_image_no_gray_levels() {
         let result = generate_cover_image("Test", "Author", 480, 800, None);
@@ -1028,9 +1043,9 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     // ==================== Edge Case Tests ====================
-    
+
     #[test]
     fn test_generate_cover_image_empty_title() {
         let result = generate_cover_image("", "Author", 480, 800, None);
@@ -1038,7 +1053,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     #[test]
     fn test_generate_cover_image_empty_author() {
         let result = generate_cover_image("Title", "", 480, 800, None);
@@ -1046,7 +1061,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     #[test]
     fn test_generate_cover_image_both_empty() {
         let result = generate_cover_image("", "", 480, 800, None);
@@ -1054,7 +1069,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 1000);
     }
-    
+
     #[test]
     fn test_generate_cover_image_small_dimensions() {
         let result = generate_cover_image("Title", "Author", 100, 100, None);
@@ -1062,7 +1077,7 @@ mod tests {
         let bytes = result.unwrap();
         assert!(bytes.len() > 100);
     }
-    
+
     #[test]
     fn test_generate_cover_image_with_unicode_characters() {
         let result = generate_cover_image("你好世界", "Привет мир", 480, 800, None);

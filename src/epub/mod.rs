@@ -1,7 +1,7 @@
 //! EPUB handling module
 
-pub mod packager;
 pub mod drm;
+pub mod packager;
 
 // Memory operations
 pub mod memory;
