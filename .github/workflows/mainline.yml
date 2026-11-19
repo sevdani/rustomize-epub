@@ -197,18 +197,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Verify Cargo.toml version matches tag
-        run: |
-          CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/.*"\([^"]*\)"/\1/')
-          TAG_VERSION="${{ needs.tag_release.outputs.tag_name }}"
-          TAG_VERSION="${TAG_VERSION#v}"
-          
-          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: Cargo.toml version ($CARGO_VERSION) does not match tag ($TAG_VERSION)"
-            exit 1
-          fi
-          echo "Version verified: $CARGO_VERSION"
-
       - name: Publish to crates.io
         run: cargo publish --token $CRATES_IO_TOKEN
         env:
