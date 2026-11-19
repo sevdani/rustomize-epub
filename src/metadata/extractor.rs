@@ -27,7 +27,7 @@ pub struct ExtractedMetadata {
 fn extract_dc_tag(content: &str, tag: &str) -> Option<String> {
     let tag_start = format!("<dc:{}>", tag);
     let tag_end = format!("</dc:{}>", tag);
-    
+
     if let Some(start) = content.find(&tag_start) {
         let start = start + tag_start.len();
         if let Some(end) = content[start..].find(&tag_end) {

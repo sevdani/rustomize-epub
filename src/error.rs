@@ -35,35 +35,35 @@ pub enum ProcessingErrorType {
     /// Image processing error
     #[error("Image processing error: {0}")]
     ImageProcessing(String),
-    
+
     /// HTML parsing error
     #[error("HTML parsing error: {0}")]
     HtmlParsing(String),
-    
+
     /// Text processing error
     #[error("Text processing error: {0}")]
     TextProcessing(String),
-    
+
     /// Metadata extraction error
     #[error("Metadata extraction error: {0}")]
     MetadataExtraction(String),
-    
+
     /// ZIP/EPUB processing error
     #[error("EPUB processing error: {0}")]
     ZipProcessing(String),
-    
+
     /// XML parsing error
     #[error("XML parsing error: {0}")]
     XmlParsing(String),
-    
+
     /// File not found error
     #[error("File not found: {0}")]
     FileNotFound(String),
-    
+
     /// Permission denied error
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     /// Generic error
     #[error("{0}")]
     Other(String),
@@ -82,7 +82,11 @@ pub struct ProcessingError {
 
 impl ProcessingError {
     /// Create a new processing error with default severity
-    pub fn new(item: impl Into<String>, error_type: ProcessingErrorType, details: impl Into<String>) -> Self {
+    pub fn new(
+        item: impl Into<String>,
+        error_type: ProcessingErrorType,
+        details: impl Into<String>,
+    ) -> Self {
         let error_type_clone = error_type.clone();
         Self {
             item: item.into(),
@@ -92,7 +96,7 @@ impl ProcessingError {
             suggestion: Self::generate_suggestion(&error_type_clone),
         }
     }
-    
+
     /// Create a new processing error with specified severity
     pub fn with_severity(
         item: impl Into<String>,
@@ -109,7 +113,7 @@ impl ProcessingError {
             suggestion: Self::generate_suggestion(&error_type_clone),
         }
     }
-    
+
     /// Generate user-friendly suggestions based on error type
     fn generate_suggestion(error_type: &ProcessingErrorType) -> Option<String> {
         match error_type {
@@ -128,24 +132,29 @@ impl ProcessingError {
                 } else if msg.contains("corrupt") || msg.contains("invalid") {
                     Some("The image file may be corrupted. Try replacing it with a different version.".to_string())
                 } else {
-                    Some("Try processing without image optimization to isolate the issue".to_string())
+                    Some(
+                        "Try processing without image optimization to isolate the issue"
+                            .to_string(),
+                    )
                 }
             }
-            ProcessingErrorType::FileNotFound(msg) => {
-                Some(format!("The file '{}' was not found. Verify the file path and try again.", msg))
-            }
-            ProcessingErrorType::PermissionDenied(msg) => {
-                Some(format!("Permission denied accessing '{}'. Check file permissions and try again.", msg))
-            }
+            ProcessingErrorType::FileNotFound(msg) => Some(format!(
+                "The file '{}' was not found. Verify the file path and try again.",
+                msg
+            )),
+            ProcessingErrorType::PermissionDenied(msg) => Some(format!(
+                "Permission denied accessing '{}'. Check file permissions and try again.",
+                msg
+            )),
             _ => None,
         }
     }
-    
+
     /// Check if this error is a warning (non-fatal)
     pub fn is_warning(&self) -> bool {
         self.severity == ErrorSeverity::Warning
     }
-    
+
     /// Check if this error is fatal
     pub fn is_fatal(&self) -> bool {
         self.severity == ErrorSeverity::Fatal
@@ -173,37 +182,37 @@ impl ProcessingErrorCollection {
     pub fn new() -> Self {
         Self { errors: Vec::new() }
     }
-    
+
     /// Add an error to the collection
     pub fn add(&mut self, error: ProcessingError) {
         self.errors.push(error);
     }
-    
+
     /// Check if there are any errors
     pub fn has_errors(&self) -> bool {
         !self.errors.is_empty()
     }
-    
+
     /// Check if there are any fatal errors
     pub fn has_fatal_errors(&self) -> bool {
         self.errors.iter().any(|e| e.is_fatal())
     }
-    
+
     /// Check if there are any warnings
     pub fn has_warnings(&self) -> bool {
         self.errors.iter().any(|e| e.is_warning())
     }
-    
+
     /// Get the number of errors
     pub fn len(&self) -> usize {
         self.errors.len()
     }
-    
+
     /// Check if collection is empty
     pub fn is_empty(&self) -> bool {
         self.errors.is_empty()
     }
-    
+
     /// Convert to Result, returning first fatal error or first error if none fatal
     pub fn into_result(self) -> Result<()> {
         if self.errors.is_empty() {
@@ -214,17 +223,17 @@ impl ProcessingErrorCollection {
             Err(self.errors[0].clone())
         }
     }
-    
+
     /// Get error summary for display
     pub fn summary(&self) -> String {
         if self.errors.is_empty() {
             return "No errors".to_string();
         }
-        
+
         let total = self.errors.len();
         let warnings = self.errors.iter().filter(|e| e.is_warning()).count();
         let errors = self.errors.iter().filter(|e| !e.is_warning()).count();
-        
+
         let mut parts = Vec::new();
         parts.push(format!("Total: {}", total));
         if warnings > 0 {
@@ -233,10 +242,10 @@ impl ProcessingErrorCollection {
         if errors > 0 {
             parts.push(format!("Errors: {}", errors));
         }
-        
+
         parts.join(", ")
     }
-    
+
     /// Get all errors formatted for display
     pub fn formatted_list(&self) -> String {
         self.errors
@@ -276,7 +285,10 @@ mod tests {
             "File not found details",
         );
         assert_eq!(error.item, "test_item");
-        assert!(matches!(error.error_type, ProcessingErrorType::FileNotFound(_)));
+        assert!(matches!(
+            error.error_type,
+            ProcessingErrorType::FileNotFound(_)
+        ));
         assert_eq!(error.details, "File not found details");
         assert_eq!(error.severity, ErrorSeverity::Error);
         assert!(error.suggestion.is_some());

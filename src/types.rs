@@ -5,10 +5,10 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct DeviceProfile {
     pub name: String,
-    pub width: u32,        // Portrait width
-    pub height: u32,       // Portrait height
-    pub gray_levels: Vec<u8>,  // e-ink grayscale levels (e.g., [0, 85, 170, 255])
-    pub ppi: u32,  // pixels per inch
+    pub width: u32,           // Portrait width
+    pub height: u32,          // Portrait height
+    pub gray_levels: Vec<u8>, // e-ink grayscale levels (e.g., [0, 85, 170, 255])
+    pub ppi: u32,             // pixels per inch
 }
 
 impl DeviceProfile {
@@ -33,7 +33,7 @@ impl DeviceProfile {
             ppi: 259,
         }
     }
-    
+
     /// Xteink X4 profile (480x800)
     pub fn x4() -> Self {
         Self {
@@ -44,7 +44,7 @@ impl DeviceProfile {
             ppi: 219,
         }
     }
-    
+
     /// EEGOREAD A4 profile (552x768)
     pub fn eegoread_a4() -> Self {
         Self {
@@ -55,7 +55,7 @@ impl DeviceProfile {
             ppi: 238,
         }
     }
-    
+
     /// BOOX Picco profile (480x800)
     pub fn boox_picco() -> Self {
         Self {
@@ -66,7 +66,7 @@ impl DeviceProfile {
             ppi: 235,
         }
     }
-    
+
     /// PaperMono profile (480x800)
     pub fn paper_mono() -> Self {
         Self {
@@ -77,7 +77,7 @@ impl DeviceProfile {
             ppi: 235,
         }
     }
-    
+
     /// Seeed Sticky profile (480x800)
     pub fn seeed_sticky() -> Self {
         Self {
@@ -88,7 +88,7 @@ impl DeviceProfile {
             ppi: 235,
         }
     }
-    
+
     /// M5Paper v1.1 profile (1024x1024)
     pub fn m5paper_v1_1() -> Self {
         Self {
@@ -99,7 +99,7 @@ impl DeviceProfile {
             ppi: 234,
         }
     }
-    
+
     /// T5 E-Paper S3 Pro Lite profile (1024x1024)
     pub fn t5_epaper_s3_pro_lite() -> Self {
         Self {
@@ -117,13 +117,13 @@ impl DeviceProfile {
 pub struct ImageOptions {
     pub grayscale: bool,
     pub contrast_boost: bool,
-    pub contrast_factor: f32,      // Default 1.5
-    pub quality: u8,               // JPEG quality (0-100)
-    pub max_width: u32,            // From device profile
-    pub max_height: u32,           // From device profile
-    pub eink_quantize: bool,       // Quantize to device gray levels
-    pub gray_levels: Vec<u8>,      // Device-specific levels
-    pub light_novel_mode: bool,    // Rotate landscape images
+    pub contrast_factor: f32,   // Default 1.5
+    pub quality: u8,            // JPEG quality (0-100)
+    pub max_width: u32,         // From device profile
+    pub max_height: u32,        // From device profile
+    pub eink_quantize: bool,    // Quantize to device gray levels
+    pub gray_levels: Vec<u8>,   // Device-specific levels
+    pub light_novel_mode: bool, // Rotate landscape images
     pub light_novel_rotate_left: bool,
 }
 
@@ -263,12 +263,12 @@ impl ProcessingOptions {
             ..Default::default()
         }
     }
-    
+
     /// Full preset: Complete device optimization
     pub fn full() -> Self {
         Self::default()
     }
-    
+
     /// Custom preset: For fine-grained control
     pub fn custom() -> Self {
         Self::default()
@@ -287,7 +287,7 @@ impl Default for ProcessingOptions {
             remove_unused_css: true,
             light_novel_mode: false,
             light_novel_rotate_left: true,
-            generate_missing_cover: true,   // Per user: always generate
+            generate_missing_cover: true, // Per user: always generate
             clean_metadata: true,
             text_cleanup: true,
             normalize_quotes: true,
@@ -337,53 +337,75 @@ impl ProcessingReport {
     /// Generate a human-readable summary
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
-        
+
         if self.images_converted > 0 {
-            parts.push(format!("Converted {}/{} images", self.images_converted, self.images_total));
+            parts.push(format!(
+                "Converted {}/{} images",
+                self.images_converted, self.images_total
+            ));
         }
-        
+
         if self.fonts_removed > 0 {
             parts.push(format!("Removed {} embedded fonts", self.fonts_removed));
         }
-        
+
         if self.css_rules_removed > 0 {
-            parts.push(format!("Stripped {} unused CSS rules", self.css_rules_removed));
+            parts.push(format!(
+                "Stripped {} unused CSS rules",
+                self.css_rules_removed
+            ));
         }
-        
+
         if self.cover_generated {
             parts.push("Generated missing cover image".to_string());
         }
-        
+
         if self.svg_covers_fixed > 0 {
-            parts.push(format!("Fixed {} SVG cover wrappers", self.svg_covers_fixed));
+            parts.push(format!(
+                "Fixed {} SVG cover wrappers",
+                self.svg_covers_fixed
+            ));
         }
-        
+
         if !self.toc_status.is_empty() {
             parts.push(format!("TOC: {}", self.toc_status));
         }
-        
+
         if self.metadata_items_stripped > 0 {
-            parts.push(format!("Stripped {} metadata entries", self.metadata_items_stripped));
+            parts.push(format!(
+                "Stripped {} metadata entries",
+                self.metadata_items_stripped
+            ));
         }
-        
+
         if self.whitespace_cleaned > 0 {
-            parts.push(format!("Cleaned {} empty elements", self.whitespace_cleaned));
+            parts.push(format!(
+                "Cleaned {} empty elements",
+                self.whitespace_cleaned
+            ));
         }
-        
+
         if self.attrs_stripped > 0 {
-            parts.push(format!("Stripped {} unnecessary attributes", self.attrs_stripped));
+            parts.push(format!(
+                "Stripped {} unnecessary attributes",
+                self.attrs_stripped
+            ));
         }
-        
+
         if self.text_fixes_total > 0 {
             parts.push(format!("Text cleanup: {}", self.text_cleanup_summary));
         }
-        
+
         if self.os_artifacts_removed > 0 {
-            parts.push(format!("Removed {} OS artifacts", self.os_artifacts_removed));
+            parts.push(format!(
+                "Removed {} OS artifacts",
+                self.os_artifacts_removed
+            ));
         }
-        
+
         if self.original_size > 0 && self.optimized_size > 0 {
-            let reduction = 100.0 * (1.0 - (self.optimized_size as f64) / (self.original_size as f64));
+            let reduction =
+                100.0 * (1.0 - (self.optimized_size as f64) / (self.original_size as f64));
             parts.push(format!(
                 "Size: {} → {} ({:.1}% reduction)",
                 self.human_size(self.original_size),
@@ -391,10 +413,10 @@ impl ProcessingReport {
                 reduction
             ));
         }
-        
+
         parts.join("; ")
     }
-    
+
     /// Format size in human-readable form
     fn human_size(&self, size: u64) -> String {
         if size < 1024 {

@@ -25,21 +25,21 @@ pub mod error;
 pub mod types;
 
 pub mod epub;
-pub mod image;
 pub mod html;
-pub mod text;
+pub mod image;
 pub mod metadata;
-pub mod toc;
 pub mod pipeline;
+pub mod text;
+pub mod toc;
 
-pub use error::{ProcessingError, ProcessingErrorType, ProcessingErrorCollection, Result};
-pub use types::{ProcessingOptions, ProcessingReport, DeviceProfile, ImageOptions, HtmlOptions};
+pub use error::{ProcessingError, ProcessingErrorCollection, ProcessingErrorType, Result};
+pub use pipeline::{process_epub_memory, process_epub_path};
+pub use types::{DeviceProfile, HtmlOptions, ImageOptions, ProcessingOptions, ProcessingReport};
 pub use types::{FilenameFormat, MetadataEdits};
-pub use pipeline::{process_epub_path, process_epub_memory};
 
 // Re-export submodules for direct access to types
-pub use text::cleaner::{TextCleanReport};
 pub use html::cleaner::HtmlCleanReport;
+pub use text::cleaner::TextCleanReport;
 
 #[cfg(test)]
 mod tests {

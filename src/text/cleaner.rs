@@ -13,13 +13,13 @@ const OCR_LIGATURES: &[(&str, &str)] = &[
 
 /// Common mojibake patterns (UTF-8 bytes misinterpreted as Latin-1)
 const MOJIBAKE_PATTERNS: &[(&str, &str)] = &[
-    ("\u{c3}\u{a9}", "\u{e9}"),  // e-acute
-    ("\u{c3}\u{a8}", "\u{e8}"),  // e-grave
-    ("\u{c3}\u{ab}", "\u{eb}"),  // e-umlaut
-    ("\u{c3}\u{a0}", "\u{e0}"),  // a-grave
-    ("\u{c3}\u{bc}", "\u{fc}"),  // u-umlaut
-    ("\u{c3}\u{b1}", "\u{f1}"),  // n-tilde
-    ("\u{c3}\u{a7}", "\u{e7}"),  // c-cedilla
+    ("\u{c3}\u{a9}", "\u{e9}"), // e-acute
+    ("\u{c3}\u{a8}", "\u{e8}"), // e-grave
+    ("\u{c3}\u{ab}", "\u{eb}"), // e-umlaut
+    ("\u{c3}\u{a0}", "\u{e0}"), // a-grave
+    ("\u{c3}\u{bc}", "\u{fc}"), // u-umlaut
+    ("\u{c3}\u{b1}", "\u{f1}"), // n-tilde
+    ("\u{c3}\u{a7}", "\u{e7}"), // c-cedilla
 ];
 
 /// Tags whose text content should not be modified
@@ -71,13 +71,17 @@ impl TextCleanReport {
         self.unicode_normalized += other.unicode_normalized;
         self.punctuation_fixed += other.punctuation_fixed;
     }
-    
+
     /// Get total fixes
     pub fn total_fixes(&self) -> usize {
-        self.double_spaces_fixed + self.ocr_ligatures_fixed + self.smart_quotes_normalized
-            + self.encoding_issues_fixed + self.unicode_normalized + self.punctuation_fixed
+        self.double_spaces_fixed
+            + self.ocr_ligatures_fixed
+            + self.smart_quotes_normalized
+            + self.encoding_issues_fixed
+            + self.unicode_normalized
+            + self.punctuation_fixed
     }
-    
+
     /// Get summary
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
@@ -88,7 +92,10 @@ impl TextCleanReport {
             parts.push(format!("{} OCR artifacts", self.ocr_ligatures_fixed));
         }
         if self.smart_quotes_normalized > 0 {
-            parts.push(format!("{} quotes normalized", self.smart_quotes_normalized));
+            parts.push(format!(
+                "{} quotes normalized",
+                self.smart_quotes_normalized
+            ));
         }
         if self.encoding_issues_fixed > 0 {
             parts.push(format!("{} encoding fixes", self.encoding_issues_fixed));
@@ -106,10 +113,10 @@ impl TextCleanReport {
 /// Clean text content in HTML (memory-based)
 pub fn clean_text_content_from_bytes(
     text_bytes: &[u8],
-    options: &crate::ProcessingOptions
+    options: &crate::ProcessingOptions,
 ) -> (Vec<u8>, TextCleanReport) {
     let mut report = TextCleanReport::default();
-    
+
     // Read content from bytes
     let content = match String::from_utf8(text_bytes.to_vec()) {
         Ok(c) => c,
@@ -117,66 +124,68 @@ pub fn clean_text_content_from_bytes(
             report.errors.push(crate::ProcessingError::new(
                 "text bytes",
                 crate::error::ProcessingErrorType::TextProcessing(e.to_string()),
-                format!("Failed to parse text as UTF-8: {}", e)
+                format!("Failed to parse text as UTF-8: {}", e),
             ));
             return (Vec::new(), report);
         }
     };
-    
+
     // Apply text cleanup
     let (new_content, file_report) = apply_text_cleanup(&content, options);
-    
+
     (new_content.into_bytes(), file_report)
 }
 
 /// Apply text cleanup to content
-pub fn apply_text_cleanup(content: &str, options: &crate::ProcessingOptions) -> (String, TextCleanReport) {
+pub fn apply_text_cleanup(
+    content: &str,
+    options: &crate::ProcessingOptions,
+) -> (String, TextCleanReport) {
     let mut report = TextCleanReport::default();
     let mut result = content.to_string();
-    
+
     // Fix whitespace
     if options.text_options.fix_whitespace {
         let (new_result, count) = fix_whitespace(&result);
         result = new_result;
         report.double_spaces_fixed = count;
     }
-    
+
     // Fix OCR ligatures
     if options.text_options.fix_ocr {
         let (new_result, count) = fix_ocr_ligatures(&result);
         result = new_result;
         report.ocr_ligatures_fixed = count;
     }
-    
+
     // Normalize quotes
     if options.text_options.normalize_quotes {
         // Simplified quote normalization
-        result = result.replace(['“', '”'], "\"")
-            .replace(['‘', '’'], "'");
+        result = result.replace(['“', '”'], "\"").replace(['‘', '’'], "'");
         report.smart_quotes_normalized = 1;
     }
-    
+
     // Fix encoding
     if options.text_options.fix_encoding {
         let (new_result, count) = fix_mojibake(&result);
         result = new_result;
         report.encoding_issues_fixed = count;
     }
-    
+
     // Fix punctuation
     if options.text_options.fix_punctuation {
         let (new_result, count) = fix_punctuation(&result);
         result = new_result;
         report.punctuation_fixed = count;
     }
-    
+
     // Normalize unicode
     if options.text_options.normalize_unicode {
         let (new_result, count) = normalize_unicode(&result);
         result = new_result;
         report.unicode_normalized = count;
     }
-    
+
     (result, report)
 }
 
@@ -192,7 +201,7 @@ fn fix_whitespace(text: &str) -> (String, usize) {
 fn fix_ocr_ligatures(text: &str) -> (String, usize) {
     let mut count = 0;
     let mut result = text.to_string();
-    
+
     for &(old, new) in OCR_LIGATURES {
         if result.contains(old) {
             let occurrences = result.matches(old).count();
@@ -200,7 +209,7 @@ fn fix_ocr_ligatures(text: &str) -> (String, usize) {
             count += occurrences;
         }
     }
-    
+
     (result, count)
 }
 
@@ -208,7 +217,7 @@ fn fix_ocr_ligatures(text: &str) -> (String, usize) {
 fn fix_mojibake(text: &str) -> (String, usize) {
     let mut count = 0;
     let mut result = text.to_string();
-    
+
     for &(old, new) in MOJIBAKE_PATTERNS {
         if result.contains(old) {
             let occurrences = result.matches(old).count();
@@ -216,7 +225,7 @@ fn fix_mojibake(text: &str) -> (String, usize) {
             count += occurrences;
         }
     }
-    
+
     (result, count)
 }
 
@@ -224,17 +233,17 @@ fn fix_mojibake(text: &str) -> (String, usize) {
 fn fix_punctuation(text: &str) -> (String, usize) {
     let mut count = 0;
     let mut result = text.to_string();
-    
+
     // Replace 4+ dots with ellipsis
     let original = result.clone();
     result = result.replace("....", "...");
     if result != original {
         count += 1;
     }
-    
+
     // Fix multiple commas
     result = result.replace(",,", ",");
-    
+
     (result, count)
 }
 
@@ -274,7 +283,7 @@ mod tests {
         let mut report2 = TextCleanReport {
             double_spaces_fixed: 2,
             smart_quotes_normalized: 1,
-          ..TextCleanReport::default()
+            ..TextCleanReport::default()
         };
         report2.double_spaces_fixed = 2;
         report2.smart_quotes_normalized = 1;
@@ -324,7 +333,7 @@ mod tests {
         // Use the actual Unicode ligature characters
         let input = "The \u{fb01}n and \u{fb02}oor";
         let (output, count) = fix_ocr_ligatures(input);
-        
+
         // Verify the ligatures were replaced
         assert!(output.contains("fin"));
         assert!(output.contains("floor"));
@@ -521,7 +530,8 @@ mod tests {
     #[test]
     fn test_fix_mojibake_all_patterns() {
         // Test all mojibake patterns
-        let input = "\u{c3}\u{a9}\u{c3}\u{a8}\u{c3}\u{ab}\u{c3}\u{a0}\u{c3}\u{bc}\u{c3}\u{b1}\u{c3}\u{a7}";
+        let input =
+            "\u{c3}\u{a9}\u{c3}\u{a8}\u{c3}\u{ab}\u{c3}\u{a0}\u{c3}\u{bc}\u{c3}\u{b1}\u{c3}\u{a7}";
         let (output, count) = fix_mojibake(input);
         assert!(output.contains("\u{e9}"));
         assert!(output.contains("\u{e8}"));
@@ -614,7 +624,6 @@ mod tests {
             unicode_normalized: 1,
             ..TextCleanReport::default()
         };
-
 
         let summary = report.summary();
         assert!(summary.contains("1 extra spaces"));
