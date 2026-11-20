@@ -203,7 +203,7 @@ jobs:
             ${{ runner.os }}-release-cargo-
 
       - name: Publish to crates.io
-        run: cargo publish --token $CRATES_IO_TOKEN
+        run: cargo publish --token $CRATES_IO_TOKEN --allow-dirty
         env:
           CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
