@@ -16,7 +16,7 @@ struct Cli {
     #[arg(short, long)]
     output: PathBuf,
 
-    /// Device profile (x3, x4, a4, picco, mono, sticky, m5, s3 or custom)
+    /// Device profile short name (x3, x4, a4, picco, mono, sticky, m5, s3 or custom)
     #[arg(short, long, default_value = "x4")]
     device: String,
 
@@ -156,24 +156,8 @@ fn main() {
     }
 
     // Override device profile
-    options.device = match cli.device.as_str() {
-        "x3" => DeviceProfile::x3(),
-        "x4" => DeviceProfile::x4(),
-        "a4" => DeviceProfile::eegoread_a4(),
-        "picco" => DeviceProfile::boox_picco(),
-        "mono" => DeviceProfile::paper_mono(),
-        "sticky" => DeviceProfile::seeed_sticky(),
-        "m5" => DeviceProfile::m5paper_v1_1(),
-        "s3" => DeviceProfile::t5_epaper_s3_pro_lite(),
-        _ => {
-            if let (Some(width), Some(height), Some(ppi)) = (cli.width, cli.height, cli.ppi) {
-                DeviceProfile::custom(width, height, ppi)
-            } else {
-                eprintln!("Error: Custom device requires --width, --height and --ppi");
-                std::process::exit(1);
-            }
-        }
-    };
+    options.device =
+        DeviceProfile::from_short_name(cli.device.as_str(), cli.width, cli.height, cli.ppi);
 
     // Apply preset overrides
     if cli.no_images {

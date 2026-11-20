@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct DeviceProfile {
     pub name: String,
+    pub short_name: String,
     pub width: u32,           // Portrait width
     pub height: u32,          // Portrait height
     pub gray_levels: Vec<u8>, // e-ink grayscale levels (e.g., [0, 85, 170, 255])
@@ -16,6 +17,7 @@ impl DeviceProfile {
     pub fn custom(width: u32, height: u32, ppi: u32) -> Self {
         Self {
             name: format!("Custom {}x{}", width, height),
+            short_name: "custom".to_string(),
             width,
             height,
             gray_levels: vec![0, 85, 170, 255],
@@ -27,6 +29,7 @@ impl DeviceProfile {
     pub fn x3() -> Self {
         Self {
             name: "Xteink X3".to_string(),
+            short_name: "x3".to_string(),
             width: 528,
             height: 792,
             gray_levels: vec![0, 85, 170, 255],
@@ -38,6 +41,7 @@ impl DeviceProfile {
     pub fn x4() -> Self {
         Self {
             name: "Xteink X4 (Classic/Pro)".to_string(),
+            short_name: "x4".to_string(),
             width: 480,
             height: 800,
             gray_levels: vec![0, 85, 170, 255],
@@ -49,6 +53,7 @@ impl DeviceProfile {
     pub fn eegoread_a4() -> Self {
         Self {
             name: "EEGOREAD A4".to_string(),
+            short_name: "a4".to_string(),
             width: 552,
             height: 768,
             gray_levels: vec![0, 85, 170, 255],
@@ -60,6 +65,7 @@ impl DeviceProfile {
     pub fn boox_picco() -> Self {
         Self {
             name: "BOOX Picco".to_string(),
+            short_name: "picco".to_string(),
             width: 480,
             height: 800,
             gray_levels: vec![0, 85, 170, 255],
@@ -71,6 +77,7 @@ impl DeviceProfile {
     pub fn paper_mono() -> Self {
         Self {
             name: "PaperMono (Lite)".to_string(),
+            short_name: "mono".to_string(),
             width: 480,
             height: 800,
             gray_levels: vec![0, 85, 170, 255],
@@ -82,6 +89,7 @@ impl DeviceProfile {
     pub fn seeed_sticky() -> Self {
         Self {
             name: "Seeed Sticky".to_string(),
+            short_name: "sticky".to_string(),
             width: 480,
             height: 800,
             gray_levels: vec![0, 85, 170, 255],
@@ -93,6 +101,7 @@ impl DeviceProfile {
     pub fn m5paper_v1_1() -> Self {
         Self {
             name: "M5Paper v1.1".to_string(),
+            short_name: "m5".to_string(),
             width: 540,
             height: 960,
             gray_levels: vec![0, 85, 170, 255],
@@ -104,10 +113,38 @@ impl DeviceProfile {
     pub fn t5_epaper_s3_pro_lite() -> Self {
         Self {
             name: "T5 E-Paper S3 Pro Lite".to_string(),
+            short_name: "s3".to_string(),
             width: 540,
             height: 960,
             gray_levels: vec![0, 85, 170, 255],
             ppi: 234,
+        }
+    }
+
+    /// Get device profile by short_name
+    pub fn from_short_name(
+        short_name: &str,
+        width: Option<u32>,
+        height: Option<u32>,
+        ppi: Option<u32>,
+    ) -> Self {
+        match short_name {
+            "x3" => Self::x3(),
+            "x4" => Self::x4(),
+            "a4" => Self::eegoread_a4(),
+            "picco" => Self::boox_picco(),
+            "mono" => Self::paper_mono(),
+            "sticky" => Self::seeed_sticky(),
+            "m5" => Self::m5paper_v1_1(),
+            "s3" => Self::t5_epaper_s3_pro_lite(),
+            "custom" => {
+                if let (Some(w), Some(h), Some(p)) = (width, height, ppi) {
+                    Self::custom(w, h, p)
+                } else {
+                    Self::x4()
+                }
+            }
+            _ => Self::x4(),
         }
     }
 }
@@ -478,6 +515,7 @@ mod tests {
     fn test_device_profile_x3() {
         let profile = DeviceProfile::x3();
         assert_eq!(profile.name, "Xteink X3");
+        assert_eq!(profile.short_name, "x3");
         assert_eq!(profile.width, 528);
         assert_eq!(profile.height, 792);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -488,6 +526,7 @@ mod tests {
     fn test_device_profile_x4() {
         let profile = DeviceProfile::x4();
         assert_eq!(profile.name, "Xteink X4 (Classic/Pro)");
+        assert_eq!(profile.short_name, "x4");
         assert_eq!(profile.width, 480);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -498,6 +537,7 @@ mod tests {
     fn test_device_profile_custom() {
         let profile = DeviceProfile::custom(600, 800, 234);
         assert_eq!(profile.name, "Custom 600x800");
+        assert_eq!(profile.short_name, "custom");
         assert_eq!(profile.width, 600);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -508,6 +548,7 @@ mod tests {
     fn test_device_profile_eegoread_a4() {
         let profile = DeviceProfile::eegoread_a4();
         assert_eq!(profile.name, "EEGOREAD A4");
+        assert_eq!(profile.short_name, "a4");
         assert_eq!(profile.width, 552);
         assert_eq!(profile.height, 768);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -518,6 +559,7 @@ mod tests {
     fn test_device_profile_boox_picco() {
         let profile = DeviceProfile::boox_picco();
         assert_eq!(profile.name, "BOOX Picco");
+        assert_eq!(profile.short_name, "picco");
         assert_eq!(profile.width, 480);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -528,6 +570,7 @@ mod tests {
     fn test_device_profile_paper_mono() {
         let profile = DeviceProfile::paper_mono();
         assert_eq!(profile.name, "PaperMono (Lite)");
+        assert_eq!(profile.short_name, "mono");
         assert_eq!(profile.width, 480);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -538,6 +581,7 @@ mod tests {
     fn test_device_profile_seeed_sticky() {
         let profile = DeviceProfile::seeed_sticky();
         assert_eq!(profile.name, "Seeed Sticky");
+        assert_eq!(profile.short_name, "sticky");
         assert_eq!(profile.width, 480);
         assert_eq!(profile.height, 800);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -548,6 +592,7 @@ mod tests {
     fn test_device_profile_m5paper_v1_1() {
         let profile = DeviceProfile::m5paper_v1_1();
         assert_eq!(profile.name, "M5Paper v1.1");
+        assert_eq!(profile.short_name, "m5");
         assert_eq!(profile.width, 540);
         assert_eq!(profile.height, 960);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -558,6 +603,7 @@ mod tests {
     fn test_device_profile_t5_epaper_s3_pro_lite() {
         let profile = DeviceProfile::t5_epaper_s3_pro_lite();
         assert_eq!(profile.name, "T5 E-Paper S3 Pro Lite");
+        assert_eq!(profile.short_name, "s3");
         assert_eq!(profile.width, 540);
         assert_eq!(profile.height, 960);
         assert_eq!(profile.gray_levels, vec![0, 85, 170, 255]);
@@ -613,6 +659,7 @@ mod tests {
     fn test_processing_options_default() {
         let options = ProcessingOptions::default();
         assert_eq!(options.device.name, "Xteink X4 (Classic/Pro)");
+        assert_eq!(options.device.short_name, "x4");
         assert!(options.html_options.strip_attributes);
         assert!(options.remove_fonts);
         assert!(options.remove_unused_css);
@@ -636,6 +683,7 @@ mod tests {
     fn test_processing_options_full() {
         let options = ProcessingOptions::full();
         assert_eq!(options.device.name, "Xteink X4 (Classic/Pro)");
+        assert_eq!(options.device.short_name, "x4");
         assert!(options.remove_fonts);
         assert!(options.remove_unused_css);
         assert!(options.generate_missing_cover);
@@ -713,6 +761,50 @@ mod tests {
         assert_eq!(FilenameFormat::Original, FilenameFormat::Original);
         assert_eq!(FilenameFormat::TitleAuthor, FilenameFormat::TitleAuthor);
         assert_ne!(FilenameFormat::AuthorTitle, FilenameFormat::TitleAuthor);
+    }
+
+    #[test]
+    fn test_device_profile_from_short_name_x3() {
+        let profile = DeviceProfile::from_short_name("x3", None, None, None);
+        assert_eq!(profile.name, "Xteink X3");
+        assert_eq!(profile.short_name, "x3");
+        assert_eq!(profile.width, 528);
+        assert_eq!(profile.height, 792);
+    }
+
+    #[test]
+    fn test_device_profile_from_short_name_x4() {
+        let profile = DeviceProfile::from_short_name("x4", None, None, None);
+        assert_eq!(profile.name, "Xteink X4 (Classic/Pro)");
+        assert_eq!(profile.short_name, "x4");
+        assert_eq!(profile.width, 480);
+        assert_eq!(profile.height, 800);
+    }
+
+    #[test]
+    fn test_device_profile_from_short_name_a4() {
+        let profile = DeviceProfile::from_short_name("a4", None, None, None);
+        assert_eq!(profile.name, "EEGOREAD A4");
+        assert_eq!(profile.short_name, "a4");
+        assert_eq!(profile.width, 552);
+        assert_eq!(profile.height, 768);
+    }
+
+    #[test]
+    fn test_device_profile_from_short_name_custom() {
+        let profile = DeviceProfile::from_short_name("custom", Some(600), Some(800), Some(234));
+        assert_eq!(profile.name, "Custom 600x800");
+        assert_eq!(profile.short_name, "custom");
+        assert_eq!(profile.width, 600);
+        assert_eq!(profile.height, 800);
+        assert_eq!(profile.ppi, 234);
+    }
+
+    #[test]
+    fn test_device_profile_from_short_name_fallback() {
+        let profile = DeviceProfile::from_short_name("unknown", None, None, None);
+        assert_eq!(profile.name, "Xteink X4 (Classic/Pro)");
+        assert_eq!(profile.short_name, "x4");
     }
 
     #[test]
