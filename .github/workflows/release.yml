@@ -34,7 +34,7 @@ jobs:
       old_version: ${{ steps.bump_version_step.outputs.old_version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -103,7 +103,7 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -146,7 +146,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -154,7 +154,7 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -168,7 +168,7 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.binary_name }}-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.binary_name }}
@@ -181,13 +181,13 @@ jobs:
     if: inputs.dry_run != true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -210,17 +210,17 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           pattern: rustomize-epub-*
           merge-multiple: false
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           name: Release ${{ needs.tag_release.outputs.tag_name }}
           tag_name: ${{ needs.tag_release.outputs.tag_name }}
